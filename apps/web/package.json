@@ -29,7 +29,7 @@
     "@repro/synth": "workspace:*",
     "@size-limit/file": "14.2.0",
     "@types/d3-force": "3.0.10",
-    "@types/node": "24.19.2",
+    "@types/node": "26.6.5",
     "@types/three": "0.186.0",
     "@vitest/coverage-v8": "5.0.5",
     "axe-core": "4.14.0",
