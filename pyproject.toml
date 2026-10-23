@@ -16,8 +16,8 @@ dev = [
   "ruff>=0.17.1",
   "mypy>=2.4.0",
   "types-jsonschema>=4.26.0",
-  "hypothesis>=6.170.1",
-  "httpx2>=2.13.1",
+  "hypothesis>=6.170.5",
+  "httpx2>=2.15.1",
   "types-pyyaml>=6.0.12",
   "xmlschema>=4.3.2",
 ]
