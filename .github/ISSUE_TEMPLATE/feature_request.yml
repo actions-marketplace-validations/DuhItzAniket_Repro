@@ -1,0 +1,26 @@
+name: Feature request
+description: Suggest something Repro should check, show or support.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        The [roadmap](https://github.com/DuhItzAniket/Repro/blob/main/docs/ROADMAP.md) lists what is planned and what was decided against. Please check it first.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to verify or see that Repro does not support today?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What you propose
+      description: How it could work, and what it would add to the card or the cockpit.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered

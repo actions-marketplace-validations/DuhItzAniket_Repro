@@ -2,9 +2,32 @@
 name = "repro-engine"
 version = "1.4.0"
 description = "Repro engine: reproduces agent-written code changes base-vs-head and verifies their claims against execution evidence."
-readme = "README.md"
+readme = "PYPI.md"  # the page PyPI shows; README.md is for developers
 license = "Apache-2.0"
 requires-python = ">=3.12"
+keywords = [
+    "ai-agents",
+    "code-review",
+    "differential-testing",
+    "pull-requests",
+    "pytest",
+    "reproducibility",
+    "sandbox",
+    "verification",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+    "Typing :: Typed",
+]
 dependencies = [
     "claude-agent-sdk==0.2.167",
     "fastapi>=0.143.0",
@@ -26,6 +49,14 @@ dependencies = [
 [project.optional-dependencies]
 # The E2B sandbox (K09): E2B's SDK, at the version its self-hosted Embed guide is tested with.
 e2b = ["e2b==2.46.0"]
+
+[project.urls]
+Homepage = "https://github.com/DuhItzAniket/Repro"
+Documentation = "https://github.com/DuhItzAniket/Repro/blob/main/docs/guide/README.md"
+Repository = "https://github.com/DuhItzAniket/Repro"
+Issues = "https://github.com/DuhItzAniket/Repro/issues"
+Changelog = "https://github.com/DuhItzAniket/Repro/blob/main/CHANGELOG.md"
+DOI = "https://doi.org/10.5281/zenodo.23524047"
 
 [project.scripts]
 repro = "repro.cli:app"

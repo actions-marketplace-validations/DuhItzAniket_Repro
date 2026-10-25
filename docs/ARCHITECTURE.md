@@ -824,7 +824,13 @@ on Linux; where it cannot be read, one agent runs at a time.
   transaction. `ts` is stamped where an event is built, before it is queued, so events that
   jobs emit at once can arrive out of order. The writer stores an event stamped before its
   run's latest with that latest `ts`, so `ts` never goes backwards within a run's `seq`.
-  `seq` stays the only order (ADR-0002). The run registry (`runs`) holds `running`, then the `run.finished` outcome.
+  `seq` stays the only order (ADR-0002). The run registry (`runs`) holds `running`, then the
+  `run.finished` outcome.
+- **Leases** (schema version 2): the writer that registered a run renews its `heartbeat_at`
+  every minute while the run is open. A writer that starts ends, as `failed`, every running
+  run whose lease is more than ten minutes old: its process was killed, so it can never
+  finish. No event is added and no card is made. The log stops where the process stopped, and
+  replays as such.
 - **Artifacts** live at `~/.repro/runs/<run_id>/`: observations, JUnit, logs, snapshots
   manifest and reproducers. Observations (E03) are deterministic CBOR (RFC 8949 §4.2.1,
   `repro.store.cbor`): `obs/A.cbor`, `obs/A2.cbor`, `obs/H.cbor`, and `obs/behaviour.cbor`, the

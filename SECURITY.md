@@ -4,7 +4,13 @@ Repro executes code from the repositories it verifies, so isolation is a core pa
 product. The threat model is in [`docs/THREAT_MODEL.md`](docs/THREAT_MODEL.md).
 
 ## Supported versions
-Repro is pre-1.0. Only the latest `main` and the latest tagged release receive fixes.
+Security fixes go into `main` and the next release. Only the latest release is supported, so
+please check that a problem still happens on it before you report it.
+
+| Version | Supported |
+|---|---|
+| Latest 1.x release | Yes |
+| Older releases | No |
 
 ## Reporting a vulnerability
 Please **do not open a public issue** for security problems. Use GitHub's

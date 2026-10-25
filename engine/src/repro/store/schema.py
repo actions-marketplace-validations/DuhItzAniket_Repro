@@ -110,8 +110,16 @@ CREATE TABLE cards (
 ) STRICT;
 """
 
+#: Migration 2: a running run's lease. The writer that registered a run renews ``heartbeat_at``
+#: while the run is open; a run whose heartbeat stopped long ago lost its process (killed, its
+#: terminal closed, the machine stopped) and is ended as ``failed`` when a writer next starts
+#: (``StoreWriter``). Runs from before this migration have none.
+_MIGRATION_2 = """
+ALTER TABLE runs ADD COLUMN heartbeat_at TEXT;
+"""
+
 #: Every migration, in order; migration N is ``MIGRATIONS[N - 1]``. Never edit a shipped one.
-MIGRATIONS: Final[tuple[str, ...]] = (_MIGRATION_1,)
+MIGRATIONS: Final[tuple[str, ...]] = (_MIGRATION_1, _MIGRATION_2)
 SCHEMA_VERSION: Final = len(MIGRATIONS)
 
 

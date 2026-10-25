@@ -20,6 +20,17 @@ All notable changes to this project are documented here. The format follows
 - Event schema: `e2b` is a sandbox backend. [K09]
 - The runners treat every sandbox whose snapshot is elsewhere alike (`RemoteSandbox`):
   Docker's and E2B's. [K09]
+- Both packages' PyPI pages: links to the repository, documentation, changelog, issues and
+  DOI, classifiers and keywords, and a description written for PyPI, with absolute links
+  (`engine/PYPI.md`, and repro-events' README).
+
+### Fixed
+- A run whose process is killed (its terminal closed, the machine stopped) no longer stays
+  "running" forever in the store and the fleet view. The process holding a run renews a lease
+  on it every minute. The next Repro process that opens the store ends a run whose lease is ten
+  minutes old as `failed`, with no card made up for it and its event log left as it was. The
+  store's schema is at version 2 (a column, `heartbeat_at`). Found when the GitHub App's run
+  was cut off on 2026-10-21. [C02]
 
 ## [1.4.0] - 2026-10-22
 

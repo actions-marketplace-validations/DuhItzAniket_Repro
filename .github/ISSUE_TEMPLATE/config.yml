@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/DuhItzAniket/Repro/security/advisories/new
+    about: Report sandbox escapes, leaked secrets and other security problems privately.
+  - name: Troubleshooting
+    url: https://github.com/DuhItzAniket/Repro/blob/main/docs/guide/troubleshooting.md
+    about: Common problems with installing and running Repro, and what each message means.

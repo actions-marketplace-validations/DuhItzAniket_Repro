@@ -31,6 +31,7 @@ Details are written for a person:
 | **No test map**: no free `sys.monitoring` tool ID in the target's interpreter | `trace_unavailable`: `base: no test map (…)` | The changed symbols go unverified: the `coverage` rule | Remove the other tool that holds the monitoring IDs (a coverage or debugging plugin) from the run | `test_selection_fixtures.py::test_no_free_tool_id_is_reported` |
 | **git is not installed** | `repro run` exits 2: `repro run: git is not installed (repro doctor checks it)` | No run | Install git; `repro doctor` checks it | `test_failures.py::test_git_missing_is_a_message_not_a_traceback` |
 | **The run is cancelled** (Ctrl+C) | `run.finished` with outcome `cancelled`; no missing items | No card: a cancelled run is not a result | Run again | `test_orchestrator.py::test_a_cancelled_run_ends_cleanly_with_a_final_event` |
+| **The run's process is killed**: its terminal closed, the machine or WSL stopped, the GitHub App's host shut down | Nothing more: its log stops where the process did. Its lease (renewed every minute) goes stale, and the next Repro process that opens the store ends it as `failed`, ten minutes on | No card, as for any run that did not finish. The fleet view shows it failed, not running | Run again (the App: a push or **Re-run Repro**) | `test_store_leases.py::test_a_killed_process_leaves_a_run_the_next_writer_ends` |
 
 Missing items that do not fail a run but limit what it shows are listed in
 ARCHITECTURE §6.1 (`no_covering_test`, `unstable_observation`, `perf_not_assessable`,

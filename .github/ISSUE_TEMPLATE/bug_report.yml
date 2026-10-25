@@ -1,0 +1,61 @@
+name: Bug report
+description: Repro did something wrong, crashed, or reported something it should not have.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. A security problem, such as a sandbox escape or a secret in a log or card, goes through [private reporting](https://github.com/DuhItzAniket/Repro/security/advisories/new) instead, as [SECURITY.md](https://github.com/DuhItzAniket/Repro/blob/main/SECURITY.md) says.
+
+        Before you paste anything, remove tokens, keys, and paths or names that identify you.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: The command you ran, and what Repro did or printed.
+      placeholder: |
+        repro run --repo ./my-project --base main --head my-branch
+        ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce it
+      description: A public repository and the two commits, or a small example that shows the problem.
+  - type: input
+    id: version
+    attributes:
+      label: Repro version
+      description: The output of `repro --version`.
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - Linux
+        - macOS
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: repro doctor
+      description: The output of `repro doctor`, which shows the Python, Docker and isolation level Repro found.
+      render: text
+  - type: textarea
+    id: card
+    attributes:
+      label: The card or the log, if there is one
+      description: "`repro export <run id> --format md` prints the card. Attach the run's event log if you can share it."
+      render: markdown

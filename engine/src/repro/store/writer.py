@@ -34,6 +34,7 @@ from typing import Any, Final, Literal
 
 from pydantic import ValidationError
 
+from repro.clock import utc_timestamp
 from repro.logs import get_logger
 from repro.store.db import connect_writer
 from repro.store.schema import migrate
@@ -129,6 +130,11 @@ class _Call:
 
 
 _STOP: Final = None  # put on the queue by close()
+#: How often the writer renews the lease of each run it registered and has not finished.
+HEARTBEAT_S: Final = 60.0
+#: A running run whose lease is older than this lost its process: a writer starting ends it.
+#: Ten heartbeats: a busy machine may delay one, never ten.
+STALE_S: Final = 600.0
 
 
 class StoreWriter:
@@ -141,13 +147,26 @@ class StoreWriter:
         max_batch: int = 512,
         max_delay: float = 0.02,
         on_commit: Callable[[Sequence[StoredEvent]], None] | None = None,
+        heartbeat_s: float = HEARTBEAT_S,
+        stale_s: float = STALE_S,
+        clock: Callable[[], float] = time.time,
     ) -> None:
         if max_batch < 1 or max_delay < 0:
             raise ValueError("max_batch must be at least 1 and max_delay not negative")
+        if heartbeat_s <= 0 or stale_s < 0:
+            raise ValueError("heartbeat_s must be positive and stale_s not negative")
         self.path = path
         self.max_batch = max_batch
         self.max_delay = max_delay
         self.on_commit = on_commit
+        self.heartbeat_s = heartbeat_s
+        self.stale_s = stale_s
+        self.clock = clock
+        #: The runs this writer registered and has not finished: the leases it renews.
+        self._open_runs: set[str] = set()
+        self._renewed = 0.0
+        #: The runs a starting writer found without a live process and ended (``failed``).
+        self.recovered: tuple[str, ...] = ()
         self._queue: queue.SimpleQueue[_Group | _Call | None] = queue.SimpleQueue()
         self._thread: threading.Thread | None = None
         self._connection: sqlite3.Connection | None = None
@@ -166,6 +185,7 @@ class StoreWriter:
             connection = connect_writer(self.path)
             try:
                 migrate(connection)
+                self.recovered = self._end_orphans(connection)
             except BaseException:
                 connection.close()
                 raise
@@ -231,9 +251,11 @@ class StoreWriter:
         def insert(connection: sqlite3.Connection) -> None:
             connection.execute(
                 "INSERT INTO runs (id, repo, base, head, producer, status, created_at,"
-                " finished_at) VALUES (?, ?, ?, ?, ?, 'running', ?, NULL)",
-                (run.id, run.repo, run.base, run.head, run.producer, run.created_at),
-            )
+                " finished_at, heartbeat_at) VALUES (?, ?, ?, ?, ?, 'running', ?, NULL, ?)",
+                (run.id, run.repo, run.base, run.head, run.producer, run.created_at,
+                 utc_timestamp(self.clock())),
+            )  # fmt: skip
+            self._open_runs.add(run.id)
 
         return self._call(insert)
 
@@ -247,6 +269,7 @@ class StoreWriter:
             )
             if cursor.rowcount != 1:
                 raise WriteError(f"{run_id} is not a running run")
+            self._open_runs.discard(run_id)
 
         return self._call(update)
 
@@ -292,30 +315,87 @@ class StoreWriter:
 
     # -- the writer thread -------------------------------------------------------------------
 
+    # -- leases -----------------------------------------------------------------------------
+
+    def _end_orphans(self, connection: sqlite3.Connection) -> tuple[str, ...]:
+        """Ends, as ``failed``, every running run whose lease is older than ``stale_s``: its
+        process is gone, so it will never finish. A run from before leases (none recorded)
+        counts from its creation. Its event log is left as it is: it stops where the process
+        stopped, and no card is made for it."""
+        now = self.clock()
+        cutoff = utc_timestamp(now - self.stale_s)
+        connection.execute("BEGIN IMMEDIATE")
+        try:
+            found = [
+                str(row[0])
+                for row in connection.execute(
+                    "SELECT id FROM runs WHERE status = 'running'"
+                    " AND COALESCE(heartbeat_at, created_at) < ? ORDER BY created_at",
+                    (cutoff,),
+                )
+            ]
+            connection.executemany(
+                "UPDATE runs SET status = 'failed', finished_at = ? WHERE id = ?"
+                " AND status = 'running'",
+                [(utc_timestamp(now), run_id) for run_id in found],
+            )
+            connection.execute("COMMIT")
+        except BaseException:
+            connection.execute("ROLLBACK")
+            raise
+        for run_id in found:
+            log.warning(
+                "a run's process is gone: ended without a card",
+                extra={"fields": {"run": run_id}},
+            )
+        return tuple(found)
+
+    def _renew(self) -> None:
+        """Renews the lease of every run this writer has open."""
+        self._renewed = time.monotonic()
+        if not self._open_runs:
+            return
+        connection = self._require()
+        stamp = utc_timestamp(self.clock())
+        connection.executemany(
+            "UPDATE runs SET heartbeat_at = ? WHERE id = ? AND status = 'running'",
+            [(stamp, run_id) for run_id in sorted(self._open_runs)],
+        )
+
+    def _batch(self, first: _Group | _Call) -> tuple[list[_Group | _Call], bool]:
+        """``first`` and what follows it within ``max_delay``, up to ``max_batch`` events; and
+        whether ``close`` was asked for meanwhile."""
+        items: list[_Group | _Call] = [first]
+        events = len(first.drafts) if isinstance(first, _Group) else 0
+        deadline = time.monotonic() + self.max_delay
+        while events < self.max_batch:
+            remaining = deadline - time.monotonic()
+            try:
+                if remaining > 0:
+                    item = self._queue.get(timeout=remaining)
+                else:
+                    item = self._queue.get_nowait()
+            except queue.Empty:
+                break
+            if item is _STOP:
+                return items, True
+            items.append(item)
+            if isinstance(item, _Group):
+                events += len(item.drafts)
+        return items, False
+
     def _run(self) -> None:
         stopping = False
         while not stopping:
-            first = self._queue.get()
+            if time.monotonic() - self._renewed >= self.heartbeat_s:
+                self._renew()
+            try:
+                first = self._queue.get(timeout=self.heartbeat_s)
+            except queue.Empty:
+                continue  # renewed at the top of the loop
             if first is _STOP:
                 break
-            items: list[_Group | _Call] = [first]
-            events = len(first.drafts) if isinstance(first, _Group) else 0
-            deadline = time.monotonic() + self.max_delay
-            while events < self.max_batch:
-                remaining = deadline - time.monotonic()
-                try:
-                    if remaining > 0:
-                        item = self._queue.get(timeout=remaining)
-                    else:
-                        item = self._queue.get_nowait()
-                except queue.Empty:
-                    break
-                if item is _STOP:
-                    stopping = True
-                    break
-                items.append(item)
-                if isinstance(item, _Group):
-                    events += len(item.drafts)
+            items, stopping = self._batch(first)
             self._process(items)
         # Anything submitted before close() is still written.
         leftovers: list[_Group | _Call] = []

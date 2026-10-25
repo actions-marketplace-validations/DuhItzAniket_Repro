@@ -5,7 +5,31 @@ description = "Repro event schema tooling: schema registry, validation, and agen
 readme = "README.md"
 license = "Apache-2.0"
 requires-python = ">=3.12"
+keywords = [
+    "event-sourcing",
+    "json-schema",
+    "pydantic",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
+]
 dependencies = ["jsonschema>=4.26.0", "referencing>=0.37.0", "pydantic>=2.14.1"]
+
+[project.urls]
+Homepage = "https://github.com/DuhItzAniket/Repro"
+Documentation = "https://github.com/DuhItzAniket/Repro/blob/main/docs/guide/README.md"
+Repository = "https://github.com/DuhItzAniket/Repro"
+Issues = "https://github.com/DuhItzAniket/Repro/issues"
+Changelog = "https://github.com/DuhItzAniket/Repro/blob/main/CHANGELOG.md"
+DOI = "https://doi.org/10.5281/zenodo.23524047"
 
 [project.scripts]
 repro-events = "repro_events.cli:main"
