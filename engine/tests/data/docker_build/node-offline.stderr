@@ -1,0 +1,71 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 2.44kB done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [1/2] FROM docker.io/library/node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392
+#4 resolve docker.io/library/node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392 0.0s done
+#4 CACHED
+
+#5 [2/2] RUN apt-get update     && apt-get install --yes --no-install-recommends git     && rm -rf /var/lib/apt/lists/*     && rm -f /usr/local/bin/yarn /usr/local/bin/yarnpkg     && corepack enable pnpm yarn     && corepack install --global         pnpm@10.34.7+sha512.ba98abc585539933375b5971f4bc6d6c73a1b4b7edc4a879e7d102fe5423d1e02309d67c60a11f04955093a96e521ad9c3b138cdd654ca5be563f378b3ae48bd         yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e     && chmod -R a+rX "/opt/corepack"
+#5 0.081 Ign:1 http://deb.debian.org/debian bookworm InRelease
+#5 0.081 Ign:2 http://deb.debian.org/debian bookworm-updates InRelease
+#5 0.081 Ign:3 http://deb.debian.org/debian-security bookworm-security InRelease
+#5 1.082 Ign:1 http://deb.debian.org/debian bookworm InRelease
+#5 1.082 Ign:2 http://deb.debian.org/debian bookworm-updates InRelease
+#5 1.082 Ign:3 http://deb.debian.org/debian-security bookworm-security InRelease
+#5 3.083 Ign:1 http://deb.debian.org/debian bookworm InRelease
+#5 3.083 Ign:2 http://deb.debian.org/debian bookworm-updates InRelease
+#5 3.083 Ign:3 http://deb.debian.org/debian-security bookworm-security InRelease
+#5 7.085 Err:1 http://deb.debian.org/debian bookworm InRelease
+#5 7.085   Temporary failure resolving 'deb.debian.org'
+#5 7.085 Err:2 http://deb.debian.org/debian bookworm-updates InRelease
+#5 7.085   Temporary failure resolving 'deb.debian.org'
+#5 7.085 Err:3 http://deb.debian.org/debian-security bookworm-security InRelease
+#5 7.085   Temporary failure resolving 'deb.debian.org'
+#5 7.091 Reading package lists...
+#5 7.097 W: Failed to fetch http://deb.debian.org/debian/dists/bookworm/InRelease  Temporary failure resolving 'deb.debian.org'
+#5 7.097 W: Failed to fetch http://deb.debian.org/debian/dists/bookworm-updates/InRelease  Temporary failure resolving 'deb.debian.org'
+#5 7.097 W: Failed to fetch http://deb.debian.org/debian-security/dists/bookworm-security/InRelease  Temporary failure resolving 'deb.debian.org'
+#5 7.097 W: Some index files failed to download. They have been ignored, or old ones used instead.
+#5 7.101 Reading package lists...
+#5 7.107 Building dependency tree...
+#5 7.107 Reading state information...
+#5 7.107 E: Unable to locate package git
+#5 ERROR: process "/bin/sh -c apt-get update     && apt-get install --yes --no-install-recommends git     && rm -rf /var/lib/apt/lists/*     && rm -f /usr/local/bin/yarn /usr/local/bin/yarnpkg     && corepack enable pnpm yarn     && corepack install --global         pnpm@10.34.7+sha512.ba98abc585539933375b5971f4bc6d6c73a1b4b7edc4a879e7d102fe5423d1e02309d67c60a11f04955093a96e521ad9c3b138cdd654ca5be563f378b3ae48bd         yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e     && chmod -R a+rX \"$COREPACK_HOME\"" did not complete successfully: exit code: 100
+------
+ > [2/2] RUN apt-get update     && apt-get install --yes --no-install-recommends git     && rm -rf /var/lib/apt/lists/*     && rm -f /usr/local/bin/yarn /usr/local/bin/yarnpkg     && corepack enable pnpm yarn     && corepack install --global         pnpm@10.34.7+sha512.ba98abc585539933375b5971f4bc6d6c73a1b4b7edc4a879e7d102fe5423d1e02309d67c60a11f04955093a96e521ad9c3b138cdd654ca5be563f378b3ae48bd         yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e     && chmod -R a+rX "/opt/corepack":
+7.085   Temporary failure resolving 'deb.debian.org'
+7.091 Reading package lists...
+7.097 W: Failed to fetch http://deb.debian.org/debian/dists/bookworm/InRelease  Temporary failure resolving 'deb.debian.org'
+7.097 W: Failed to fetch http://deb.debian.org/debian/dists/bookworm-updates/InRelease  Temporary failure resolving 'deb.debian.org'
+7.097 W: Failed to fetch http://deb.debian.org/debian-security/dists/bookworm-security/InRelease  Temporary failure resolving 'deb.debian.org'
+7.097 W: Some index files failed to download. They have been ignored, or old ones used instead.
+7.101 Reading package lists...
+7.107 Building dependency tree...
+7.107 Reading state information...
+7.107 E: Unable to locate package git
+------
+Dockerfile:29
+--------------------
+  28 |         COREPACK_DEFAULT_TO_LATEST=0
+  29 | >>> RUN apt-get update \
+  30 | >>>     && apt-get install --yes --no-install-recommends git \
+  31 | >>>     && rm -rf /var/lib/apt/lists/* \
+  32 | >>>     && rm -f /usr/local/bin/yarn /usr/local/bin/yarnpkg \
+  33 | >>>     && corepack enable pnpm yarn \
+  34 | >>>     && corepack install --global \
+  35 | >>>         pnpm@10.34.7+sha512.ba98abc585539933375b5971f4bc6d6c73a1b4b7edc4a879e7d102fe5423d1e02309d67c60a11f04955093a96e521ad9c3b138cdd654ca5be563f378b3ae48bd \
+  36 | >>>         yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e \
+  37 | >>>     && chmod -R a+rX "$COREPACK_HOME"
+  38 |     
+--------------------
+ERROR: failed to build: failed to solve: process "/bin/sh -c apt-get update     && apt-get install --yes --no-install-recommends git     && rm -rf /var/lib/apt/lists/*     && rm -f /usr/local/bin/yarn /usr/local/bin/yarnpkg     && corepack enable pnpm yarn     && corepack install --global         pnpm@10.34.7+sha512.ba98abc585539933375b5971f4bc6d6c73a1b4b7edc4a879e7d102fe5423d1e02309d67c60a11f04955093a96e521ad9c3b138cdd654ca5be563f378b3ae48bd         yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e     && chmod -R a+rX \"$COREPACK_HOME\"" did not complete successfully: exit code: 100

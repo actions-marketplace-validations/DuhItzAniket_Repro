@@ -16,6 +16,7 @@ Repro is developed phase by phase against a public roadmap. Before you open a PR
 
 | Job | Checks |
 |---|---|
+| `changes` | Lists the files a pull request changes, and decides whether they are documentation only (below) |
 | `lint` | Biome, `tsc --noEmit`, Ruff lint + format, mypy (strict), generated-code drift |
 | `test` (Ubuntu, Windows) | Vitest, the web build, pytest (on Ubuntu with Docker required, for the container escape suite), CLI smoke test; on Ubuntu also the bundle size and the model's coverage |
 | `agent evals` | The reviewed pull requests replayed from their cassettes, held to `bench/data/thresholds.toml`; no model is called |
@@ -30,6 +31,16 @@ Repro is developed phase by phase against a public roadmap. Before you open a PR
 | `kata` | The container sandbox in Kata microVMs (L5), escape suite included, on GitHub's nested virtualization; not required |
 | `e2b` | The E2B sandbox on real Firecracker microVMs (L5), E2B's self-hosted stack started from a pinned commit; not required |
 | `dependency review` (PRs) | Known vulnerabilities (high and above) in dependencies the PR adds or changes. Off until the repository's Dependency graph is enabled and the variable `DEPENDENCY_REVIEW=true` is set |
+
+**Documentation only.** A pull request whose every file is documentation that nothing builds,
+tests or packages takes a fast path: `lint` and `security` run, the two `test` checks pass with
+their steps skipped, and the other jobs are skipped. It finishes in a few minutes instead of
+about half an hour. Documentation here means the root documents (`README.md`, `CHANGELOG.md`,
+`CONTRIBUTING.md`, `SECURITY.md`, `CODE_OF_CONDUCT.md`, `CLAUDE.md`, `CITATION.cff`), text and
+pictures under `docs/`, and the issue and pull request templates. It does not
+include a document a test reads (`docs/ARCHITECTURE.md`, `docs/THREAT_MODEL.md`), the packages'
+READMEs and PyPI pages, the agents' prompts, or anything else; `scripts/ci_changes.py` has the
+rules and `engine/tests/test_ci_changes.py` checks them. Every push to `main` runs everything.
 
 A nightly workflow runs the frame-cost gate, the full visual suite, and the scale benchmark on
 three real repositories at pinned commits. A published release builds and attaches its wheels

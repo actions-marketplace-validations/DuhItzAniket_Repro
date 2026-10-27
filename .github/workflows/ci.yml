@@ -19,6 +19,36 @@ env:
   HYPOTHESIS_PROFILE: ci # derandomised: a CI failure reproduces exactly
 
 jobs:
+  # The documentation fast path. Lists the files a pull request changes, both paths of a moved
+  # file included; when every one is documentation that nothing builds, tests or packages
+  # (scripts/ci_changes.py), the slow jobs skip. The required test jobs still run, with each
+  # step skipped, so their checks report and pass. Lint and security always run. A push to
+  # main runs everything, and so does any failure here: the jobs below run unless this job
+  # positively says documentation only.
+  changes:
+    name: changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      docs_only: ${{ steps.classify.outputs.docs_only }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: github.event_name == 'pull_request'
+        with:
+          persist-credentials: false
+          fetch-depth: 2 # the merge commit and its two parents
+      - name: Classify the changed files
+        id: classify
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" = pull_request ]; then
+            git diff --name-only --no-renames HEAD^1 HEAD | python3 -I scripts/ci_changes.py >> "$GITHUB_OUTPUT"
+          else
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+          fi
+          cat "$GITHUB_OUTPUT"
+
   lint:
     name: lint
     runs-on: ubuntu-latest
@@ -57,6 +87,10 @@ jobs:
 
   test:
     name: test (${{ matrix.os }})
+    needs: changes
+    # Never skipped as a whole: a skipped matrix job reports no check per operating system,
+    # and these checks are required. A failure in `changes` gives a full run.
+    if: ${{ !cancelled() }}
     strategy:
       fail-fast: false
       matrix:
@@ -68,40 +102,53 @@ jobs:
     # 2026-10-20 and once passed 30 (Ubuntu: 11 to 13).
     timeout-minutes: 45
     steps:
+      - name: Documentation only, so the suites are skipped (scripts/ci_changes.py)
+        if: needs.changes.outputs.docs_only == 'true'
+        run: echo "Every changed file is documentation. main runs everything once this merges."
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: needs.changes.outputs.docs_only != 'true'
         with:
           persist-credentials: false
           fetch-depth: 0 # C07's pinned real-repository test analyses commits of this history
       - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        if: needs.changes.outputs.docs_only != 'true'
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: needs.changes.outputs.docs_only != 'true'
         with:
           node-version-file: .node-version
           cache: pnpm
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        if: needs.changes.outputs.docs_only != 'true'
         with:
           version: ${{ env.UV_VERSION }}
           enable-cache: true
 
       - name: Install JS dependencies
+        if: needs.changes.outputs.docs_only != 'true'
         run: pnpm install --frozen-lockfile
       - name: JS tests
+        if: needs.changes.outputs.docs_only != 'true'
         run: pnpm test
       - name: Web build
+        if: needs.changes.outputs.docs_only != 'true'
         run: pnpm build
       - name: Bundle size (size-limit, 300 kB gzip; B12)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-latest' && needs.changes.outputs.docs_only != 'true'
         run: pnpm --filter @repro/web size
       - name: Model coverage (projections and store at least 90%; SDLC.md)
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-latest' && needs.changes.outputs.docs_only != 'true'
         run: pnpm --filter @repro/web coverage
       - name: Install Python environment
+        if: needs.changes.outputs.docs_only != 'true'
         run: uv sync --locked
       - name: Python tests (the agent evals run in their own job)
+        if: needs.changes.outputs.docs_only != 'true'
         run: uv run --locked pytest -m "not agent_eval and not chaos"
         env:
           # The L3 escape suite (D02) must run where Docker has Linux containers: Ubuntu.
           REPRO_REQUIRE_DOCKER: ${{ matrix.os == 'ubuntu-latest' && '1' || '0' }}
       - name: CLI smoke test
+        if: needs.changes.outputs.docs_only != 'true'
         run: uv run --locked repro --version
 
   # G09: the agent evals. The reviewed pull requests are replayed from their cassettes, each
@@ -110,6 +157,8 @@ jobs:
   # on Windows, and no model is reached: replay never makes a call.
   agent-evals:
     name: agent evals
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -131,6 +180,8 @@ jobs:
   # sandbox enforces limits differently on each.
   chaos:
     name: chaos (${{ matrix.os }})
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -155,6 +206,8 @@ jobs:
   # The target, pallets/itsdangerous (BSD-3-Clause), is cloned at run time, never vendored.
   gate-c:
     name: gate C
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -201,6 +254,8 @@ jobs:
   # Docker; environments from the package index), checked in the cockpit's panels.
   gate-d:
     name: gate D
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -242,6 +297,8 @@ jobs:
   # diff with its reproducer, and the noise of the A/A2 control does not (gate-e.spec.ts).
   gate-e:
     name: gate E
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
@@ -285,6 +342,8 @@ jobs:
   # until they are committed. It then checks that an injected visual change is caught.
   visual:
     name: visual
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     container:
@@ -348,6 +407,8 @@ jobs:
   # The allocation and size gates themselves run in "test"; the perf gate also runs nightly.
   gates:
     name: gates
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -443,6 +504,8 @@ jobs:
   # repository, all inside ten minutes (scripts/install_check.py).
   install:
     name: install (${{ matrix.os }})
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -515,6 +578,8 @@ jobs:
   # https://gvisor.dev/docs/user_guide/install/ says (checked 2026-10-17).
   gvisor:
     name: gvisor
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -552,6 +617,8 @@ jobs:
   # 2026-10-21), so the job is not required. The script stops first if /dev/kvm is missing.
   kata:
     name: kata
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:
@@ -581,6 +648,8 @@ jobs:
   # key is the local stack's own, made for this run.
   e2b:
     name: e2b
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.docs_only != 'true' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     steps:

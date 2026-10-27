@@ -1,0 +1,52 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 198B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [1/2] FROM docker.io/library/node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392
+#4 resolve docker.io/library/node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392 0.0s done
+#4 CACHED
+
+#5 [2/2] RUN npm install --global repro-capture-no-such-package-0d1f
+#5 0.902 npm error code E404
+#5 0.902 npm error 404 Not Found - GET https://registry.npmjs.org/repro-capture-no-such-package-0d1f - Not found
+#5 0.902 npm error 404
+#5 0.902 npm error 404  'repro-capture-no-such-package-0d1f@*' is not in this registry.
+#5 0.902 npm error 404
+#5 0.902 npm error 404 Note that you can also install from a
+#5 0.902 npm error 404 tarball, folder, http url, or git url.
+#5 0.903 npm notice
+#5 0.903 npm notice New major version of npm available! 10.9.9 -> 12.2.1
+#5 0.903 npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+#5 0.903 npm notice To update run: npm install -g npm@12.2.1
+#5 0.903 npm notice
+#5 0.903 npm error A complete log of this run can be found in: /root/.npm/_logs/2026-10-25T09_28_42_222Z-debug-0.log
+#5 ERROR: process "/bin/sh -c npm install --global repro-capture-no-such-package-0d1f" did not complete successfully: exit code: 1
+------
+ > [2/2] RUN npm install --global repro-capture-no-such-package-0d1f:
+0.902 npm error 404  'repro-capture-no-such-package-0d1f@*' is not in this registry.
+0.902 npm error 404
+0.902 npm error 404 Note that you can also install from a
+0.902 npm error 404 tarball, folder, http url, or git url.
+0.903 npm notice
+0.903 npm notice New major version of npm available! 10.9.9 -> 12.2.1
+0.903 npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.1
+0.903 npm notice To update run: npm install -g npm@12.2.1
+0.903 npm notice
+0.903 npm error A complete log of this run can be found in: /root/.npm/_logs/2026-10-25T09_28_42_222Z-debug-0.log
+------
+Dockerfile:2
+--------------------
+   1 |     FROM node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392
+   2 | >>> RUN npm install --global repro-capture-no-such-package-0d1f
+   3 |     
+--------------------
+ERROR: failed to build: failed to solve: process "/bin/sh -c npm install --global repro-capture-no-such-package-0d1f" did not complete successfully: exit code: 1

@@ -1,0 +1,53 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 268B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392
+#2 DONE 1.3s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [1/2] FROM docker.io/library/node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392
+#4 resolve docker.io/library/node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392 0.0s done
+#4 CACHED
+
+#5 [2/2] RUN apt-get update     && apt-get install --yes --no-install-recommends git-does-not-exist     && rm -rf /var/lib/apt/lists/*
+#5 0.312 Get:1 http://deb.debian.org/debian bookworm InRelease [151 kB]
+#5 0.459 Get:2 http://deb.debian.org/debian bookworm-updates InRelease [55.4 kB]
+#5 0.580 Get:3 http://deb.debian.org/debian-security bookworm-security InRelease [34.8 kB]
+#5 0.735 Get:4 http://deb.debian.org/debian bookworm/main amd64 Packages [8790 kB]
+#5 45.84 Get:5 http://deb.debian.org/debian bookworm-updates/main amd64 Packages [6924 B]
+#5 45.87 Get:6 http://deb.debian.org/debian-security bookworm-security/main amd64 Packages [357 kB]
+#5 48.30 Fetched 9395 kB in 48s (195 kB/s)
+#5 48.30 Reading package lists...
+#5 48.89 Reading package lists...
+#5 49.30 Building dependency tree...
+#5 49.41 Reading state information...
+#5 49.42 E: Unable to locate package git-does-not-exist
+#5 ERROR: process "/bin/sh -c apt-get update     && apt-get install --yes --no-install-recommends git-does-not-exist     && rm -rf /var/lib/apt/lists/*" did not complete successfully: exit code: 100
+------
+ > [2/2] RUN apt-get update     && apt-get install --yes --no-install-recommends git-does-not-exist     && rm -rf /var/lib/apt/lists/*:
+0.312 Get:1 http://deb.debian.org/debian bookworm InRelease [151 kB]
+0.459 Get:2 http://deb.debian.org/debian bookworm-updates InRelease [55.4 kB]
+0.580 Get:3 http://deb.debian.org/debian-security bookworm-security InRelease [34.8 kB]
+0.735 Get:4 http://deb.debian.org/debian bookworm/main amd64 Packages [8790 kB]
+45.84 Get:5 http://deb.debian.org/debian bookworm-updates/main amd64 Packages [6924 B]
+45.87 Get:6 http://deb.debian.org/debian-security bookworm-security/main amd64 Packages [357 kB]
+
+
+
+49.42 E: Unable to locate package git-does-not-exist
+------
+Dockerfile:2
+--------------------
+   1 |     FROM node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392
+   2 | >>> RUN apt-get update \
+   3 | >>>     && apt-get install --yes --no-install-recommends git-does-not-exist \
+   4 | >>>     && rm -rf /var/lib/apt/lists/*
+   5 |     
+--------------------
+ERROR: failed to build: failed to solve: process "/bin/sh -c apt-get update     && apt-get install --yes --no-install-recommends git-does-not-exist     && rm -rf /var/lib/apt/lists/*" did not complete successfully: exit code: 100

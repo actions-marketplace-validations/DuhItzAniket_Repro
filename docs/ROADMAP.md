@@ -22,7 +22,7 @@
 | **H** | Hardening & first release | H01–H06 | **v1.0.0** | Installable, documented, hardened local tool |
 | **I** | GitHub integration | I01–I04 | v1.1.0 (I01–I03), v1.4.0 (I04) | PR URL in, check run + sticky comment + signed attestation out |
 | **J** | Evaluation & research | J01–J10 | v1.2.0 (harness); the study later | Reproducible benchmark results and paper submission |
-| **K** | Expansion | K01–K11 | v1.2.0 (K01–K05), v1.3.0 (K06–K08, K11), v1.4.0 (K10) | Built |
+| **K** | Expansion | K01–K11 | v1.2.0 (K01–K05), v1.3.0 (K06–K08, K11), v1.4.0 (K10), v1.5.0 (K09) | Built |
 
 76 scheduled phases (A–J) plus 11 in Stage K. Stages run in order. B and C could run in
 parallel with two contributors, because B depends only on the schema (A04/A05).
@@ -791,3 +791,4 @@ Completed phases append a one-line entry here. Detail lives in `docs/phases/`.
 | I04 | 2026-10-21 | [#117](https://github.com/DuhItzAniket/Repro/pull/117) | The GitHub App (ADR-0019): `repro app register` from a manifest (the key and secret straight into the data directory), `repro app serve` from a smee.io relay or a port; deliveries checked by signature and ID; a repository's pull requests run, a fork's on a write user's click; a one-repository token per run, in Docker; the card with the App's ID, its bot's comment and a Re-run button. Live trial in WSL2 at L5: 11 relayed deliveries all checked, FLAGGED in 72 s; a re-run fault found and fixed (a new check run each run) |
 | Release 1.4.0 | 2026-10-22 | [#118](https://github.com/DuhItzAniket/Repro/pull/118) | Isolation level L5 in Kata microVMs (K10) and the GitHub App (I04); published to PyPI and archived on Zenodo |
 | K09 | 2026-10-23 | [#119](https://github.com/DuhItzAniket/Repro/pull/119) | The E2B sandbox (`sandbox = "e2b"`, ADR-0018 B): a Firecracker microVM per side from a template of Repro's image recipe; sealed by the VM's own nftables before the target runs, as a user without sudo, and checked from inside (E2B's own firewall let TCP to numbered addresses through, measured on WSL2); RemoteSandbox shared with Docker's; the e2b extra; live in WSL2 (19 tests) and CI's `e2b` job |
+| Release 1.5.0 | 2026-10-25 | [#123](https://github.com/DuhItzAniket/Repro/pull/123) | The E2B sandbox (K09), runs a killed process left "running" ended as failed (#120), fast-uri 3.1.9 (#121), the README and PyPI pages (#122); published to PyPI and archived on Zenodo |

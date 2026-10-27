@@ -1,0 +1,5 @@
+DEPRECATED: The legacy builder is deprecated and will be removed in a future release.
+            BuildKit is currently disabled; enable it by removing the DOCKER_BUILDKIT=0
+            environment-variable.
+
+The command '/bin/sh -c apt-get update     && apt-get install --yes --no-install-recommends git-does-not-exist     && rm -rf /var/lib/apt/lists/*' returned a non-zero code: 100

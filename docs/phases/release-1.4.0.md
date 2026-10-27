@@ -19,4 +19,11 @@
 - Nothing changes for a run without `docker_runtime = "kata"` or the App.
 
 ## Published
-Filled in once the GitHub release is published: the wheels, PyPI and Zenodo.
+- GitHub release [v1.4.0](https://github.com/DuhItzAniket/Repro/releases/tag/v1.4.0), 2026-10-22. The release workflow
+  ([run 39833178300](https://github.com/DuhItzAniket/Repro/actions/runs/39833178300)) built both wheels, installed them and made a
+  first run, then attached them to the release.
+- PyPI, through trusted publishing on 2026-10-22:
+  [repro-events 1.4.0](https://pypi.org/project/repro-events/1.4.0/), then
+  [repro-engine 1.4.0](https://pypi.org/project/repro-engine/1.4.0/).
+- Zenodo: [10.5281/zenodo.23574560](https://doi.org/10.5281/zenodo.23574560), a version of
+  the concept DOI [10.5281/zenodo.23524047](https://doi.org/10.5281/zenodo.23524047).

@@ -39,6 +39,14 @@ running or not installed. Start Docker Desktop (or the Docker service), or run i
 process: `REPRO_SANDBOX=process`. With the default, `auto`, Repro uses Docker only when it
 answers, and for a JavaScript project only when asked (`docker`).
 
+**`building the sandbox image failed`.** The first run with Docker on a machine builds Repro's
+image (`repro-sandbox`, and `repro-sandbox-node` for JavaScript). The build pulls the base
+image and downloads Debian's packages and, for JavaScript, pnpm and Yarn. The message ends
+with the cause: the line of the failing step's output that names it, and the step's exit
+code. `Temporary failure resolving`, `EAI_AGAIN`, or Corepack's `Error when performing the
+request to <url>` is the network: check it and run again. A built image is kept, so this is
+needed once per machine, until a release changes the image.
+
 **`Docker has no runtime 'runsc'`.** `docker_runtime = "runsc"` asks for gVisor, which is not
 installed as Docker's runtime. Install it as [gVisor's guide](https://gvisor.dev/docs/user_guide/install/)
 says (`runsc install`), or unset `docker_runtime` for L3. gVisor runs on Linux only.

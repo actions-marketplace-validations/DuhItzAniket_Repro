@@ -6,6 +6,9 @@
 *.bat text eol=crlf
 *.cmd text eol=crlf
 
+# docker build's output, captured byte for byte (engine/tests/test_sandbox_image.py).
+engine/tests/data/docker_build/** -text
+
 *.png binary
 *.jpg binary
 *.gif binary

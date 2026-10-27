@@ -1,0 +1,52 @@
+#0 building with "default" instance using docker driver
+
+#1 [internal] load build definition from Dockerfile
+#1 transferring dockerfile: 282B done
+#1 DONE 0.0s
+
+#2 [internal] load metadata for docker.io/library/node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392
+#2 DONE 0.0s
+
+#3 [internal] load .dockerignore
+#3 transferring context: 2B done
+#3 DONE 0.0s
+
+#4 [1/2] FROM docker.io/library/node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392
+#4 resolve docker.io/library/node:22-bookworm-slim@sha256:c3de60bf2f9dd0ac6370e6117950ff62d6e339527e7472301c9c78a017978392 0.0s done
+#4 CACHED
+
+#5 [2/2] RUN corepack enable pnpm yarn     && corepack install --global pnpm@10.34.7
+#5 0.214 Installing pnpm@10.34.7...
+#5 0.247 Internal Error: Error when performing the request to https://registry.npmjs.org/pnpm/-/pnpm-10.34.7.tgz; for troubleshooting help, see https://github.com/nodejs/corepack#troubleshooting
+#5 0.247     at fetch (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:13170:11)
+#5 0.247     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+#5 0.247     at async fetchUrlStream (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:13200:20)
+#5 0.247     at async download (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:13352:18)
+#5 0.247     at async installVersion (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:13466:55)
+#5 0.247     at async Engine.ensurePackageManager (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:13994:32)
+#5 0.247     at async InstallGlobalCommand.installFromDescriptor (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:14430:5)
+#5 0.247     at async Promise.all (index 0)
+#5 0.247     at async InstallGlobalCommand.execute (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:14408:5)
+#5 0.247     at async InstallGlobalCommand.validateAndExecute (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:1352:26)
+#5 ERROR: process "/bin/sh -c corepack enable pnpm yarn     && corepack install --global pnpm@10.34.7" did not complete successfully: exit code: 1
+------
+ > [2/2] RUN corepack enable pnpm yarn     && corepack install --global pnpm@10.34.7:
+0.247     at fetch (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:13170:11)
+0.247     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+0.247     at async fetchUrlStream (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:13200:20)
+0.247     at async download (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:13352:18)
+0.247     at async installVersion (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:13466:55)
+0.247     at async Engine.ensurePackageManager (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:13994:32)
+0.247     at async InstallGlobalCommand.installFromDescriptor (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:14430:5)
+0.247     at async Promise.all (index 0)
+0.247     at async InstallGlobalCommand.execute (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:14408:5)
+0.247     at async InstallGlobalCommand.validateAndExecute (/usr/local/lib/node_modules/corepack/dist/lib/corepack.cjs:1352:26)
+------
+Dockerfile:3
+--------------------
+   2 |     ENV COREPACK_HOME=/opt/corepack COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+   3 | >>> RUN corepack enable pnpm yarn \
+   4 | >>>     && corepack install --global pnpm@10.34.7
+   5 |     
+--------------------
+ERROR: failed to build: failed to solve: process "/bin/sh -c corepack enable pnpm yarn     && corepack install --global pnpm@10.34.7" did not complete successfully: exit code: 1

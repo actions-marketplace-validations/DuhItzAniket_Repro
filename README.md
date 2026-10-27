@@ -101,7 +101,7 @@ Details: [architecture](docs/ARCHITECTURE.md) and [threat model](docs/THREAT_MOD
 
 ## Status
 
-**v1.4.0.** Stages A to I and K are done. The evaluation study (Stage J) has its harness,
+**v1.5.0.** Stages A to I and K are done. The evaluation study (Stage J) has its harness,
 protocol and draft pre-registration; it has not run yet. Progress is tracked in the
 [roadmap](docs/ROADMAP.md) and every change in the [changelog](CHANGELOG.md).
 
@@ -117,7 +117,7 @@ protocol and draft pre-registration; it has not run yet. Progress is tracked in 
 | H Hardening | Installable, documented, hardened | **v1.0** |
 | I GitHub | Check runs, sticky PR comments, signed attestations, a GitHub App | v1.1, v1.4 |
 | J Evaluation | Benchmark harness and pre-registered study | v1.2 (harness) |
-| K Expansion | JavaScript/TypeScript, fleet view, MCP server, symbolic checks, microVM sandboxes | v1.2 to v1.4 |
+| K Expansion | JavaScript/TypeScript, fleet view, MCP server, symbolic checks, microVM sandboxes | v1.2 to v1.5 |
 
 ## Documentation
 

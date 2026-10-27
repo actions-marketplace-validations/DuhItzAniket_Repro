@@ -15,5 +15,9 @@ max_line_length = 100
 [*.md]
 trim_trailing_whitespace = false
 
+[engine/tests/data/docker_build/**]
+trim_trailing_whitespace = unset
+insert_final_newline = unset
+
 [*.{ps1,bat,cmd}]
 end_of_line = crlf
