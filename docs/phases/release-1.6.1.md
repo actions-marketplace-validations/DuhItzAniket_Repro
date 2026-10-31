@@ -19,4 +19,11 @@
   cassette records one.
 
 ## Published
-Filled in after the tag: the GitHub release, PyPI and Zenodo.
+- GitHub release [v1.6.1](https://github.com/DuhItzAniket/Repro/releases/tag/v1.6.1), 2026-10-31. The release workflow
+  ([run 41226812209](https://github.com/DuhItzAniket/Repro/actions/runs/41226812209)) built both wheels, installed them and made a
+  first run, then attached them to the release.
+- PyPI, through trusted publishing on 2026-10-31:
+  [repro-events 1.6.1](https://pypi.org/project/repro-events/1.6.1/), then
+  [repro-engine 1.6.1](https://pypi.org/project/repro-engine/1.6.1/).
+- Zenodo: [10.5281/zenodo.23841629](https://doi.org/10.5281/zenodo.23841629), a version of
+  the concept DOI [10.5281/zenodo.23524047](https://doi.org/10.5281/zenodo.23524047).

@@ -24,4 +24,11 @@
 - The card, the gap rules and the agents' evidence do not read the graph; a card is unchanged.
 
 ## Published
-Filled in after the tag: the GitHub release, PyPI and Zenodo.
+- GitHub release [v1.6.0](https://github.com/DuhItzAniket/Repro/releases/tag/v1.6.0), 2026-10-31. The release workflow
+  ([run 41226739732](https://github.com/DuhItzAniket/Repro/actions/runs/41226739732)) built both wheels, installed them and made a
+  first run, then attached them to the release.
+- PyPI, through trusted publishing on 2026-10-31:
+  [repro-events 1.6.0](https://pypi.org/project/repro-events/1.6.0/), then
+  [repro-engine 1.6.0](https://pypi.org/project/repro-engine/1.6.0/).
+- Zenodo: [10.5281/zenodo.23841616](https://doi.org/10.5281/zenodo.23841616), a version of
+  the concept DOI [10.5281/zenodo.23524047](https://doi.org/10.5281/zenodo.23524047).
