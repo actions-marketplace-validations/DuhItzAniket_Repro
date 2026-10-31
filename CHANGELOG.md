@@ -6,6 +6,32 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+- Classes and packages the tests do run are no longer `no_covering_test` items. Found on
+  Lectris, where Repro's Action listed seven small `@dataclass(frozen=True, slots=True)`
+  classes that the tests construct, and an `__init__.py` holding only a docstring. Two causes:
+  - The methods dataclasses, attrs and `NamedTuple` write for a class are compiled from strings
+    (`<string>`), so they have no file and the map left them out. A class with no method of its
+    own never counted as run. The plugin now maps such a method as its class, found through its
+    first argument with `type`'s own descriptors, so none of the target's code runs. Constructing
+    the class covers it, and a change to its fields selects the tests that constructed it on
+    base (none were selected before). The map's format is now 3, so cached maps are made again.
+  - Importing `pkg.text.squash` runs `pkg/text/__init__.py` first, but the import graphs hold
+    only the edge to `pkg.text.squash`. Test selection now reaches a package from its modules'
+    importers. The blast radius shown keeps the static imports.
+
+  A class whose body is all its code (no method, lambda, decorator or `NamedTuple` base: an
+  enum's members, an exception class, a `Protocol`) runs nothing a test can be seen to run. It
+  is now treated as module-level code, selected and covered by imports. A decorated or methodful
+  class must still run some of its code. New fixture `generated`, with a dataclass nothing
+  constructs that stays a gap. [D05]
+
+## [1.6.0] - 2026-10-31
+
+The selected tests on the stage, so a real run's bunches of strands have nodes to fire from
+(B14), and Claude reviewers that always get to answer (G01). Release record:
+`docs/phases/release-1.6.0.md`.
+
 ### Added
 - The selected tests on the stage. Once a run selects its tests, the engine adds a graph node
   for each (`type: test`, its test ID) and a `covers` edge to each changed function, method or
@@ -42,6 +68,20 @@ All notable changes to this project are documented here. The format follows
   error did not say which download had failed. A failed build is still not retried. It was
   the only failed image build in the logs of 422 CI runs (13 to 25 October). apt-get and npm
   retry their own downloads, and the provisioning jobs' deadlines allow for one build. [D03]
+- Claude agents that answer in a schema (reviewers among them) now always get to answer.
+  Repro 1.5.0's GitHub Action, on `claude-haiku-5-5`, left three of seven claims "not judged"
+  on each of two real pull requests. Their reviewers spent all four turns on lookups and ended
+  `error_max_turns` with no verdict. Such a call now resumes its session for up to two more
+  turns: the answer, and the CLI's retry of one off the schema. It is told to answer now and
+  offered no tool but `StructuredOutput`, under the same lockdown. The two turns stay within
+  what is left of the call's dollar budget and time. The OpenAI-compatible backend already kept
+  its last two turns for the answer. The answer is checked like any other, so an uncited
+  verdict is still refused. The extra turns show as an `agent.state` `thinking` step and count
+  in the call's turns, tokens and cost. A Claude call's `turns` are now the model's responses,
+  which `max_turns` limits, not the CLI's `num_turns` (8 for three responses that made seven
+  tool calls). Measured live on one of those pull requests, one run each: 6 of 8 claims judged
+  before, 8 of 8 after. Four reviewers answered in a fifth turn, and the run's agent cost went
+  from $0.027 to $0.037 (`docs/paper/LOG.md`). [G01]
 
 ## [1.5.0] - 2026-10-25
 
@@ -1010,7 +1050,8 @@ Stage A — Foundation. Gate record: `docs/phases/A-gate.md`.
 - ADRs 0003 (envelope versioning fields), 0004 (Docker as the default sandbox), 0007 (agent
   runtime) and 0011 (motion safety) accepted. [A02]
 
-[Unreleased]: https://github.com/DuhItzAniket/Repro/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/DuhItzAniket/Repro/compare/v1.6.0...HEAD
+[1.6.0]: https://github.com/DuhItzAniket/Repro/releases/tag/v1.6.0
 [1.5.0]: https://github.com/DuhItzAniket/Repro/releases/tag/v1.5.0
 [1.4.0]: https://github.com/DuhItzAniket/Repro/releases/tag/v1.4.0
 [1.3.1]: https://github.com/DuhItzAniket/Repro/releases/tag/v1.3.1

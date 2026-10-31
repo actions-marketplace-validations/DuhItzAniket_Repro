@@ -46,11 +46,26 @@ class BlastRadius:
         }
 
 
-def downstream(sources: Iterable[str], base: ImportGraph, head: ImportGraph) -> dict[str, int]:
-    """``sources`` at distance 0, their importers at 1, and so on, over both sides' imports."""
+def downstream(
+    sources: Iterable[str], base: ImportGraph, head: ImportGraph, *, packages: bool = False
+) -> dict[str, int]:
+    """``sources`` at distance 0, their importers at 1, and so on, over both sides' imports.
+
+    With ``packages`` (Python's selection), a module also imports the package it is in, as
+    Python's import system does before it runs the module: ``from a.b import c`` runs
+    ``a/__init__.py`` and ``a/b/__init__.py`` first, though the graphs hold only the edge to
+    ``a.b.c``. The blast radius shown keeps the static imports alone."""
     importers: dict[str, set[str]] = {}
     for importer, imported in base.imports | head.imports:
         importers.setdefault(imported, set()).add(importer)
+    if packages:
+        known = base.modules.keys() | head.modules.keys()
+        for module in known:
+            parent = module.rpartition(".")[0]
+            while parent and parent not in known:
+                parent = parent.rpartition(".")[0]
+            if parent:
+                importers.setdefault(parent, set()).add(module)
     start = sorted(set(sources))
     distance = dict.fromkeys(start, 0)
     queue = deque(start)

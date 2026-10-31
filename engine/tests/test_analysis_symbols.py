@@ -6,6 +6,7 @@ import textwrap
 import pytest
 
 from repro.analysis import build_table, module_names
+from repro.analysis.symbols import body_only
 
 SYMBOL_ID = re.compile(r"^[^\s:]+:[^\s#]+#[0-9]+$")  # the schema's SymbolId pattern
 
@@ -178,3 +179,81 @@ def test_names_do_not_change_the_fingerprint() -> None:
     c = build_table(b"def first(x):\n    return x - 1\n", "m").symbols[1]
     assert a.fingerprint == b.fingerprint
     assert a.fingerprint != c.fingerprint
+
+
+BODIES = b'''"""Classes of every shape."""
+import dataclasses
+import enum
+import typing
+
+
+class Kind(enum.Enum):
+    A = 1
+
+
+class Failure(ValueError):
+    """Raised when it fails."""
+
+
+class Shape(typing.Protocol):
+    sides: int
+
+
+@dataclasses.dataclass
+class Point:
+    x: int
+
+
+class Pair(typing.NamedTuple):
+    key: str
+
+
+class Tuple(NamedTuple):
+    key: str
+
+
+class Sized:
+    def size(self):
+        return 1
+
+
+class Sorted:
+    key = lambda item: item  # noqa: E731
+
+
+class Outer:
+    class Inner:
+        def m(self):
+            pass
+
+
+def make():
+    class Local:
+        pass
+
+    return Local
+'''
+
+
+@pytest.mark.parametrize(
+    ("qualname", "expected"),
+    [
+        ("Kind", True),  # an enum's members
+        ("Failure", True),  # an exception class
+        ("Shape", True),  # a Protocol's annotations
+        ("Point", False),  # a decorator writes its methods (dataclasses, attrs)
+        ("Pair", False),  # NamedTuple writes __new__
+        ("Tuple", False),
+        ("Sized", False),  # a method of its own
+        ("Sorted", False),  # a lambda is code that runs later too
+        ("Outer", False),  # a nested class's method counts
+        ("Outer.Inner", False),
+        ("make.<locals>.Local", False),  # its body runs in make()'s calls: the map sees it
+        ("make", False),  # not a class
+        ("<module>", False),
+    ],
+)
+def test_a_class_that_is_only_a_body(qualname: str, expected: bool) -> None:
+    table = build_table(BODIES, "m")
+    (symbol,) = [s for s in table.symbols if s.qualname == qualname]
+    assert body_only(symbol) is expected

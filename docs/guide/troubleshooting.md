@@ -145,7 +145,9 @@ token cannot. What could be made still is.
 
 **`agent_failed`.** A model call failed, timed out or reached the run's budget
 (`agent_budget_usd`, US$2 by default). The deterministic part of the card still stands; the
-claims it could not judge stay unsupported.
+claims it could not judge stay unsupported. A call that spends all its turns looking things up
+is asked for its answer anyway, and only one that still gives none fails this way: its detail
+then ends "when asked for the answer after error_max_turns".
 
 ## Logs and data
 Logs go to stderr, as JSON lines. `--log-format text` is easier to read, and `--log-level`

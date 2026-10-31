@@ -97,7 +97,8 @@ results read back as untrusted input (`complete` only with the session record) a
 
 ## Test selection
 
-`run_tests(..., map_tests=True)` also records the functions each test runs (`sys.monitoring`);
+`run_tests(..., map_tests=True)` also records the functions each test runs (`sys.monitoring`; a
+method a dataclass, attrs or `NamedTuple` writes for a class is recorded as the class);
 `repro.runner.selection` turns them into symbols (`test_map`), picks the tests a change can
 affect with their reasons (`select`), and lists the changed symbols no selected test runs
 (`uncovered`, `no_covering_test`). Base maps are cached (`MapCache`).

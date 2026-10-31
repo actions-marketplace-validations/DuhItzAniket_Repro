@@ -30,7 +30,7 @@ RUN_ID = new_run_id()
 FIXTURE_NAMES = [
     "honest-fix", "selection", "untested", "flaky", "test-tamper", "breaks-one", "noisy",
     "silent-change", "false-claim", "api-break", "new-dep", "probe-only", "policy-weaken",
-    "forbidden-path", "invariants-pass", "net-call",
+    "forbidden-path", "invariants-pass", "net-call", "generated",
 ]  # fmt: skip
 
 

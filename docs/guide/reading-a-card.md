@@ -80,9 +80,12 @@ traces, then A2 in a shuffled order. A test that flips is run again three times 
 The tests that run are those the change can affect:
 - the tests that ran the changed code on base. A class's own code (an attribute, a base class,
   a decorator) runs when its module is imported, so a change to it selects the tests that ran
-  one of its methods;
+  one of its methods. The methods a dataclass, attrs or `NamedTuple` writes for a class count:
+  constructing one runs it;
 - the tests in modules that import, directly or not, a module whose own code changed, and the
-  tests below a changed `conftest.py`;
+  tests below a changed `conftest.py`. Importing `pkg.text.squash` runs `pkg/text/__init__.py`
+  first, so it counts as importing `pkg.text`. A class with nothing but a body (an enum's
+  members, an exception class) counts as its module's own code;
 - the tests the change adds or edits.
 
 A changed function counts as reached when a selected test ran it, on base or on head (a

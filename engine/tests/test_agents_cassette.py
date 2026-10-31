@@ -397,6 +397,57 @@ def test_a_call_recorded_through_the_cli_replays_offline(
     assert len(api.messages()) == 2  # nothing more reached the stand-in
 
 
+@pytest.mark.model_cli
+def test_a_call_asked_for_its_answer_records_and_replays_like_any_other(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A call whose lookups used every turn, then answered in the turn kept for it: the
+    cassette is the same kind as any other's, the step that asked for the answer is in its
+    transcript, and a replay in another run gives the same answer, turns and usage."""
+    first = Run()
+
+    def script(body: Mapping[str, Any]) -> list[dict[str, Any]]:
+        if {tool["name"] for tool in body.get("tools", [])} == {STRUCTURED_OUTPUT}:
+            answer = {"verdict": "supported", "cited": [first.claim]}
+            return [tool_use(STRUCTURED_OUTPUT, answer, call_id="toolu_answer")]
+        read = {"id": first.claim}
+        return [tool_use("mcp__repro__get_evidence", read, call_id=f"toolu_{model_turns(body)}")]
+
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    api = FakeMessagesApi(script)
+    with api.serving():
+        monkeypatch.setenv("ANTHROPIC_BASE_URL", api.url)
+        live = AgentSdkBackend(tmp_path / "scratch")
+        recorder = CassetteBackend(tmp_path / "cassettes", "record", live)
+        recorded = asyncio.run(recorder.run(first.request(budget=Budget(max_turns=2))))
+    monkeypatch.setenv("ANTHROPIC_BASE_URL", OFFLINE_API)
+
+    assert recorded.outcome == "ok", recorded.detail
+    assert (recorded.turns, len(api.messages())) == (3, 3)
+    [path] = cassette_files(tmp_path / "cassettes")
+    document = json.loads(path.read_text(encoding="utf-8"))
+    steps = [entry["progress"] for entry in document["transcript"] if "progress" in entry]
+    assert [(step["turn"], step["tool"]) for step in steps] == [
+        (1, "mcp__repro__get_evidence"),
+        (2, "mcp__repro__get_evidence"),
+        (3, None),  # the step that asked for the answer
+        (3, STRUCTURED_OUTPUT),
+    ]
+
+    second = Run()
+    progress: list[Progress] = []
+    again = replay(tmp_path / "cassettes", second, progress, budget=Budget(max_turns=2))
+    assert again.structured == {"verdict": "supported", "cited": [second.claim]}
+    assert (again.turns, again.usage, again.tool_calls) == (
+        recorded.turns,
+        recorded.usage,
+        recorded.tool_calls,
+    )
+    assert progress[2].detail == "no answer after 2 turns of lookups: asked for it now"
+    assert len(api.messages()) == 3
+
+
 def test_control_the_offline_check_sees_the_cli_leave_the_machine(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

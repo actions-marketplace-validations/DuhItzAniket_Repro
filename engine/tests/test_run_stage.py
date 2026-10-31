@@ -198,7 +198,7 @@ def check_against_expectation(name: str, events: list[dict[str, Any]]) -> None:
         "honest-fix", "injection", "test-tamper", "perf-regress", "noisy", "silent-change",
         "false-claim", "api-break", "new-dep", "probe-only", "probe-semantic", "policy-weaken",
         "forbidden-path", "invariants-pass", "net-call", "selection", "untested", "flaky",
-        "breaks-one",
+        "breaks-one", "generated",
     ],
 )  # fmt: skip
 def test_a_run_reproduces_the_fixture(name: str, tmp_path: Path, golden: Golden) -> None:

@@ -1,6 +1,6 @@
 [project]
 name = "repro-bench"
-version = "1.5.0"
+version = "1.6.0"
 description = "Repro evaluation harness: dataset adapters, baselines and analysis (Stage J)."
 readme = "README.md"
 license = "Apache-2.0"

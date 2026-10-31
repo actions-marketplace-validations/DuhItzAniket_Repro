@@ -1,0 +1,136 @@
+{
+  "card_version": 1,
+  "claims": [],
+  "conditions": {
+    "base": {
+      "ref": "a10aaa5d948073f8e154de87395f99a7f502ae8c",
+      "sha": "a10aaa5d948073f8e154de87395f99a7f502ae8c"
+    },
+    "head": {
+      "ref": "64375b8b06f687941d9481db75df5e0b2d9b13bb",
+      "sha": "64375b8b06f687941d9481db75df5e0b2d9b13bb"
+    },
+    "isolation_level": "L2",
+    "language": "python",
+    "lock_sha256": {
+      "base": null,
+      "head": null
+    },
+    "models": [],
+    "network": "detected-only",
+    "platform": "<platform>",
+    "python_version": "<python_version>",
+    "repro_version": "<repro_version>",
+    "seeds": {
+      "hash_seed": 0,
+      "hash_seed_repeat": 1
+    },
+    "selected_tests": 7
+  },
+  "gap": [
+    {
+      "check": "diff.outcome",
+      "evidence_id": "ev_00000000000000000000000001",
+      "explained_by": [],
+      "kind": "new",
+      "origin": "introduced",
+      "resolution": "passed",
+      "stability": "stable",
+      "summary": "new: tests/test_marks.py::test_close (base absent, head passed)",
+      "type": "test_outcome"
+    },
+    {
+      "check": "diff.outcome",
+      "evidence_id": "ev_00000000000000000000000002",
+      "explained_by": [],
+      "kind": "new",
+      "origin": "introduced",
+      "resolution": "passed",
+      "stability": "stable",
+      "summary": "new: tests/test_marks.py::test_empty (base absent, head passed)",
+      "type": "test_outcome"
+    },
+    {
+      "check": "diff.outcome",
+      "evidence_id": "ev_00000000000000000000000003",
+      "explained_by": [],
+      "kind": "new",
+      "origin": "introduced",
+      "resolution": "passed",
+      "stability": "stable",
+      "summary": "new: tests/test_marks.py::test_kind (base absent, head passed)",
+      "type": "test_outcome"
+    },
+    {
+      "check": "diff.outcome",
+      "evidence_id": "ev_00000000000000000000000004",
+      "explained_by": [],
+      "kind": "new",
+      "origin": "introduced",
+      "resolution": "passed",
+      "stability": "stable",
+      "summary": "new: tests/test_marks.py::test_pair (base absent, head passed)",
+      "type": "test_outcome"
+    },
+    {
+      "check": "diff.outcome",
+      "evidence_id": "ev_00000000000000000000000005",
+      "explained_by": [],
+      "kind": "new",
+      "origin": "introduced",
+      "resolution": "passed",
+      "stability": "stable",
+      "summary": "new: tests/test_marks.py::test_span (base absent, head passed)",
+      "type": "test_outcome"
+    },
+    {
+      "check": "diff.outcome",
+      "evidence_id": "ev_00000000000000000000000006",
+      "explained_by": [],
+      "kind": "new",
+      "origin": "introduced",
+      "resolution": "passed",
+      "stability": "stable",
+      "summary": "new: tests/test_text.py::test_spaces (base absent, head passed)",
+      "type": "test_outcome"
+    }
+  ],
+  "generated_at": "<generated_at>",
+  "invariants": [],
+  "missing": [
+    {
+      "detail": "no selected test runs forms.marks:Unused#0 (added)",
+      "reason": "no_covering_test",
+      "resolution": "Add or point to a test that exercises it",
+      "targets": [
+        {
+          "file": "forms/marks.py",
+          "symbol": "forms.marks:Unused#0"
+        }
+      ]
+    },
+    {
+      "detail": "1 test runs in under 5 ms on both sides, too fast to time: tests/test_tokens.py::test_tokens",
+      "reason": "perf_not_assessable",
+      "resolution": "A benchmark that runs the changed code long enough to time",
+      "targets": [
+        {
+          "test": "tests/test_tokens.py::test_tokens"
+        }
+      ]
+    }
+  ],
+  "pr": null,
+  "replay": {
+    "event_count": "<count>",
+    "event_log_sha256": "<sha256>"
+  },
+  "repo": {
+    "name": "repo",
+    "url": null
+  },
+  "run_id": "run_00000000000000000000000000",
+  "status": "VERIFIED",
+  "status_reasons": [],
+  "verdicts": []
+}

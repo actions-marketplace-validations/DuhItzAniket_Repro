@@ -1,0 +1,45 @@
+# Expected Repro outcome for the generated fixture (D05 asserts the selection).
+[fixture]
+name = "generated"
+head = "feat/marks"
+
+[expected]
+# One changed symbol uncovered is within the default max_uncovered_changed_symbols.
+status = "VERIFIED"
+claims = [
+  "read() turns a mark into a Close, a Pair or a Span",
+  "kind() names a mark",
+  "Open gets a depth",
+  "squash.spaces() collapses whitespace",
+]
+evidence = [
+  "test_outcome:P2P:tests/test_tokens.py::test_tokens",
+  "test_outcome:new:tests/test_marks.py::test_close",
+  "test_outcome:new:tests/test_marks.py::test_empty",
+  "test_outcome:new:tests/test_marks.py::test_kind",
+  "test_outcome:new:tests/test_marks.py::test_pair",
+  "test_outcome:new:tests/test_marks.py::test_span",
+  "test_outcome:new:tests/test_text.py::test_spaces",
+]
+# <reason>:<target>
+missing = [
+  "no_covering_test:forms.marks:Unused#0",
+  "perf_not_assessable:tests/test_tokens.py::test_tokens",
+]
+
+[selection]
+# Close, Pair and Span are constructed by read(), so the methods dataclasses, NamedTuple and
+# the attrs-style decorator wrote for them run; Kind and MarkError are a body and nothing else,
+# covered (like forms.marks' own code) by the test module's import; forms/text/__init__.py, a
+# docstring, runs before forms.text.squash, which test_text imports. Nothing constructs Unused.
+uncovered = ["forms.marks:Unused#0"]
+
+[selection.selected]
+# test_tokens ran Open's dataclass-written __init__ on base: Open's new field selects it.
+"tests/test_tokens.py::test_tokens" = ["blast_radius"]
+"tests/test_marks.py::test_close" = ["module_import", "new_test"]
+"tests/test_marks.py::test_empty" = ["module_import", "new_test"]
+"tests/test_marks.py::test_kind" = ["module_import", "new_test"]
+"tests/test_marks.py::test_pair" = ["module_import", "new_test"]
+"tests/test_marks.py::test_span" = ["module_import", "new_test"]
+"tests/test_text.py::test_spaces" = ["module_import", "new_test"]

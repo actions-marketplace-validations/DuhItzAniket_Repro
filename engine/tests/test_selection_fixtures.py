@@ -79,7 +79,7 @@ def run_selection(name: str, root: Path, provisioner: HostProvisioner) -> Outcom
     return Outcome(chosen, tuple(g.symbol_id for g in gaps), base_map, mapped.results.outcomes())
 
 
-@pytest.mark.parametrize("name", ["selection", "untested"])
+@pytest.mark.parametrize("name", ["selection", "untested", "generated"])
 def test_the_selection_is_what_a_person_expects(
     name: str, tmp_path: Path, provisioner: HostProvisioner
 ) -> None:

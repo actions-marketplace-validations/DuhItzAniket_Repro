@@ -14,6 +14,15 @@ A function is a *place*: its file relative to ``REPRO_ROOT`` (the snapshot), its
 qualified name and first line, which the engine turns into a symbol. Code outside the root (the
 standard library, installed packages) has no place and is not recorded.
 
+Methods that code writes for a class have no file of their own: dataclasses, attrs and
+``NamedTuple`` compile them from strings (``<string>``, ``<attrs generated methods m.C>``). In
+the map, such a method's place is its class's: the class in whose ``__dict__`` it is, found
+through the method's first argument (the instance, or the class for ``__new__``), as the
+class's file, ``<class qualname>.<name>`` and the class's first line (``__firstlineno__``,
+Python 3.13 on; 0 before). So a class whose methods are all written for it is mapped when a
+test constructs it. Only descriptors taken from ``type`` and ``ModuleType`` are read, so none
+of the target's code runs to find the class.
+
 The map (D05) uses ``sys.monitoring``: PY_START is recorded once per function and test, then
 disabled at that place until the next test restarts events, so a function already seen costs
 nothing more in that test. Repro takes tool ID 4, 3, 2 or 5, whichever is free first, and leaves
@@ -48,6 +57,7 @@ import random
 import socket
 import sys
 from pathlib import Path
+from types import FunctionType, ModuleType
 from typing import Any
 
 import pytest
@@ -64,6 +74,12 @@ _STATE: dict[str, Any] = {
 }  # fmt: skip
 
 Place = tuple[str, str, int]
+# Read through ``type``'s and ``ModuleType``'s own descriptors: a metaclass's or a module's
+# ``__getattribute__``, ``__getattr__`` or properties never run.
+_MRO = type.__dict__["__mro__"].__get__
+_TYPE_DICT = type.__dict__["__dict__"].__get__
+_QUALNAME = type.__dict__["__qualname__"].__get__
+_MODULE_DICT = vars(ModuleType)["__dict__"].__get__
 
 
 def _write(record: dict[str, Any]) -> None:
@@ -153,6 +169,16 @@ def _guard_network() -> None:
     socket.getaddrinfo = getaddrinfo
 
 
+def _code_of(value: Any) -> Any:
+    """The code of a function as a class's ``__dict__`` holds it (plain, static or class
+    method), or None. Exact types only: no descriptor of the target's is called."""
+    kind = type(value)
+    if kind is staticmethod or kind is classmethod:
+        value = value.__func__
+        kind = type(value)
+    return value.__code__ if kind is FunctionType else None
+
+
 class _Places:
     """Each code object's place, or None outside the root; computed once per code object (keyed
     by identity and held, since equal code objects in two files compare equal)."""
@@ -161,20 +187,61 @@ class _Places:
         self.root = os.path.join(os.path.realpath(root), "")
         self.folded = os.path.normcase(self.root)
         self.known: dict[int, tuple[Any, Place | None]] = {}
+        self.written: dict[int, tuple[Any, Place | None]] = {}  # code with no file: its class's
+
+    def relative(self, filename: Any) -> str | None:
+        """A file's path relative to the root, or None for no file or one outside the root."""
+        if type(filename) is not str or not filename or filename.startswith("<"):
+            return None
+        real = os.path.realpath(filename)
+        if not os.path.normcase(real).startswith(self.folded):
+            return None
+        return real[len(self.root) :].replace(os.sep, "/")
 
     def of(self, code: Any) -> Place | None:
         known = self.known.get(id(code))
         if known is not None:
             return known[1]
-        place = None
-        filename = code.co_filename
-        if filename and not filename.startswith("<"):
-            real = os.path.realpath(filename)
-            if os.path.normcase(real).startswith(self.folded):
-                relative = real[len(self.root) :].replace(os.sep, "/")
-                place = (relative, code.co_qualname, code.co_firstlineno)
+        relative = self.relative(code.co_filename)
+        place = None if relative is None else (relative, code.co_qualname, code.co_firstlineno)
         self.known[id(code)] = (code, place)
         return place
+
+    def written_for(self, code: Any, frame: Any) -> Place | None:
+        """The place of a method code wrote for a class (the module's docstring), or None;
+        decided once, at its first call in a test, from the frame's first argument."""
+        known = self.written.get(id(code))
+        if known is not None:
+            return known[1]
+        place = None
+        if code.co_argcount and not code.co_filename.startswith("<frozen "):  # not the stdlib's
+            place = self._owner(code, frame.f_locals.get(code.co_varnames[0]))
+        self.written[id(code)] = (code, place)
+        return place
+
+    def _owner(self, code: Any, first: Any) -> Place | None:
+        """The place of the class whose ``__dict__`` holds ``code``: along the MRO of ``first``
+        when it is a class (``__new__`` receives one), then of its type."""
+        kind = type(first)
+        for start in (first, kind) if issubclass(kind, type) else (kind,):
+            mro = _MRO(start)
+            for klass in mro if type(mro) is tuple else ():
+                for name, value in _TYPE_DICT(klass).items():
+                    if _code_of(value) is code:
+                        return self._class_place(klass, name)
+        return None
+
+    def _class_place(self, klass: type, name: str) -> Place | None:
+        own = _TYPE_DICT(klass)
+        module_name, line = own.get("__module__"), own.get("__firstlineno__", 0)
+        module = sys.modules.get(module_name) if type(module_name) is str else None
+        if module is None or not issubclass(type(module), ModuleType):
+            return None
+        relative = self.relative(_MODULE_DICT(module).get("__file__"))
+        qualname = _QUALNAME(klass)
+        if relative is None or type(qualname) is not str:
+            return None
+        return (relative, f"{qualname}.{name}", line if type(line) is int else 0)
 
 
 class _Monitor:
@@ -193,6 +260,11 @@ class _Monitor:
     def started(self, code: Any, _offset: int) -> Any:
         place = self.places.of(code)
         if place is None:
+            current = self.current
+            if current is not None and code.co_filename.startswith("<"):
+                written = self.places.written_for(code, sys._getframe(1))
+                if written is not None:  # mapped as its class; never a tracer's target
+                    current.add(written)
             return sys.monitoring.DISABLE
         current = self.current
         if current is not None and self.mapping:

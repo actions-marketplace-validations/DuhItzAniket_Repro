@@ -23,6 +23,10 @@ the target repository is untrusted. Every option and variable below closes one w
   a positive number and ignores anything else, so 1 is its floor) with
   ``CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS=1``.
 
+A call resumed for its answer (``repro.agents.sdk``) runs under these same options, built for a
+request with no Repro tool: ``StructuredOutput`` is all its context offers and all the gate
+lets through.
+
 The environment variables are Claude Code's documented ones (code.claude.com/docs/en/env-vars,
 read 2026-10-15).
 """

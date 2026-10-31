@@ -1,6 +1,6 @@
 [project]
 name = "repro-engine"
-version = "1.5.0"
+version = "1.6.0"
 description = "Repro engine: reproduces agent-written code changes base-vs-head and verifies their claims against execution evidence."
 readme = "PYPI.md"  # the page PyPI shows; README.md is for developers
 license = "Apache-2.0"

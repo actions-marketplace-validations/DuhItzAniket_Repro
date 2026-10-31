@@ -132,6 +132,27 @@ def _shape(
     return tuple(tokens)
 
 
+_FUNCTIONS: Final = (ast.FunctionDef, ast.AsyncFunctionDef, ast.Lambda)
+
+
+def body_only(symbol: Symbol) -> bool:
+    """Whether a class's body is all its code, so that it runs only when its module is imported:
+    no function or lambda in it, no decorator and no ``NamedTuple`` base (dataclasses, attrs and
+    ``NamedTuple`` write methods for a class, which run later), and not inside a function (whose
+    calls run the body). Such a class (an enum's members, an exception class, a ``Protocol``)
+    has nothing a test can be seen to run: its use runs the standard library's code or none."""
+    node = symbol.node
+    if not isinstance(node, ast.ClassDef) or "<locals>" in symbol.qualname:
+        return False
+    if node.decorator_list:
+        return False
+    for base in node.bases:
+        name = base.attr if isinstance(base, ast.Attribute) else getattr(base, "id", None)
+        if name == "NamedTuple":
+            return False
+    return not any(isinstance(n, _FUNCTIONS) for s in node.body for n in ast.walk(s))
+
+
 def _code_lines(source: bytes) -> frozenset[int]:
     lines: set[int] = set()
     try:

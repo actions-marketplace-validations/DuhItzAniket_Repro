@@ -23,7 +23,13 @@ Outcome = Literal["ok", "max_turns", "max_budget", "timeout", "invalid_output", 
 
 @dataclass(frozen=True, slots=True)
 class Budget:
-    """What one agent call may spend; every call has one (ADR-0007)."""
+    """What one agent call may spend; every call has one (ADR-0007).
+
+    ``max_turns`` bounds the model's responses. A call with an output schema always gets to
+    answer: the OpenAI-compatible backend keeps the last of them for its answer, and the Agent
+    SDK backend, where any turn can answer, follows lookups that used them all with up to two
+    turns for the answer alone (``repro.agents.sdk.ANSWER_TURNS``). The dollar budget and the
+    time limit hold for the whole call."""
 
     max_turns: int = 8
     max_budget_usd: float = 1.0

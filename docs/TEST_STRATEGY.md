@@ -60,6 +60,7 @@ OS**. A test pins them.
 | `noisy` | Refactors functions whose results or arguments carry time, random and set-order noise | every noisy call `unstable`, no behaviour difference (E03) | not diffed; listed under *missing* |
 | `untested` | Change no test reaches | blast radius with no covering tests | UNVERIFIABLE / *missing* |
 | `selection` | Changes whose affected tests a person can name, beside a test none affects | exactly the expected selected tests and reasons; no gaps (D05) | VERIFIED |
+| `generated` | Adds dataclasses, a `NamedTuple`, an attrs-style class, an enum, an exception class and a docstring-only package; one dataclass nothing constructs | the classes the tests construct or import are covered; `Unused` alone is a `no_covering_test` item (D05 fix) | VERIFIED / *missing* |
 | `breaks-one` | A change that breaks exactly one test | that test P2F, in Execution, Change routes and the index (Gate D) | FLAGGED |
 | `forbidden-path` | Edits a protected path | invariant failure | FLAGGED (`forbidden_paths`) |
 | `invariants-pass` | Every invariant enabled; a change that keeps them | every invariant passes (F02, F03) | VERIFIED |
@@ -77,6 +78,7 @@ first needs them; `honest-fix` exists since A07, `selection` and `untested` sinc
 E05, `probe-only` since E06, `policy-weaken` since F01, `forbidden-path` and `invariants-pass` since
 F02 (with `api-break` and `new-dep` given a base `repro.yml`), `net-call` since F03 (with
 `perf-regress` given a 20 % `perf_budget`, and `invariants-pass` a test slow enough to time).
+`generated` since the fix to D05's map of methods written for classes (after 1.6.0).
 `net-call` connects to 192.0.2.1, in TEST-NET-1, which RFC 5737 reserves for documentation, so
 nothing answers it even outside a sandbox. Its host is `bytes`, so the lookup does not load
 Python's `idna` codec. That codec's first use took about 4 ms on Windows and put the test at

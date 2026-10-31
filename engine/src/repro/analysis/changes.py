@@ -28,6 +28,7 @@ from repro.analysis.symbols import (
     Symbol,
     SymbolKind,
     SymbolTable,
+    body_only,
     build_table,
 )
 from repro.gitops import Git, diff, read_blobs, regular_files
@@ -49,6 +50,9 @@ class SymbolChange:
     base_lines: tuple[int, int] | None
     head_lines: tuple[int, int] | None
     previous_symbol_id: str | None = None
+    #: A class whose body is all its code on every side it is on (``symbols.body_only``): it
+    #: runs at import only, so test selection treats it as module-level code.
+    body_only: bool = False
 
     def payload(self) -> dict[str, Any]:
         """The ``symbol.changed`` payload."""
@@ -96,7 +100,11 @@ def _change(
     if symbol is None:
         raise ValueError("a change needs a symbol on at least one side")
     previous = old.id if old is not None and new is not None and old.id != new.id else None
-    return SymbolChange(symbol.id, change, symbol.kind, file, _span(old), _span(new), previous)
+    sides = [s for s in (old, new) if s is not None]
+    return SymbolChange(
+        symbol.id, change, symbol.kind, file, _span(old), _span(new), previous,
+        body_only=all(body_only(s) for s in sides),
+    )  # fmt: skip
 
 
 def _has_own_code(symbol: Symbol) -> bool:

@@ -85,7 +85,7 @@
         true
       ]
     ],
-    "turns": 3,
+    "turns": 2,
     "usage": {
       "cache_read_tokens": 0,
       "cost_usd": 0.0016,

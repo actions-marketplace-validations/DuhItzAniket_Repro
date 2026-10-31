@@ -766,3 +766,76 @@ entry. If something turns out wrong, add a correcting entry.
   - a stronger boundary in one respect (a kernel of its own) came with a weaker one in
     another, found only because the same checks run at every level.
 
+## 2026-10-31 · fix · Claude reviewers always answer
+- **Seen in production:** Repro 1.5.0's GitHub Action, with `agents=claude` on
+  `claude-haiku-5-5`, on two pull requests of DuhItzAniket/Lectris. On #2 and on #3, three of
+  seven claims were "not judged". Each such claim had an `agent_failed` item:
+  `its reviewer ended max_turns: error_max_turns`. One of them was as plain as
+  "unicode.ligatures replaces the ligatures U+FB00 to U+FB06 with their letters".
+- **The cause:** a reviewer has four turns. The Agent SDK backend passed them to the CLI as
+  they were, so the model could spend all four on lookups and end with no answer. The
+  OpenAI-compatible backend already kept its last two turns for the answer (2026-10-19), so a
+  reviewer on Groq is always asked for one.
+- **Fixed** (`agents/sdk.py`): a call with an output schema whose lookups end
+  `error_max_turns` resumes its session for up to two more turns. It is told to answer now and
+  offered no tool but `StructuredOutput`, within what is left of its dollar budget and time.
+  Its answer is checked like any other. A Claude call's `turns` are now the model's responses:
+  the CLI's own `num_turns` gave 8 for three responses that made seven tool calls.
+- **Checked before relying on it:**
+  - the Messages API accepts a conversation whose history calls a tool the request no longer
+    offers (one live call, HTTP 200);
+  - with CLI 2.1.300 and the local stand-in API, a resumed session's result counts the usage of
+    the session it resumed, while its `max_budget_usd` counts from zero.
+- **Measured, before and after:** `repro run --pr …/Lectris/pull/3`, the same commits, Docker
+  (L3), `claude-haiku-5-5` for every role, live, one run each.
+  - Before (`run_01M68WXWWMF1D9ZQRGSJ7XF1BF`): 8 claims read, 6 judged (all supported), 2 not
+    judged (`error_max_turns`). 11 calls: the reader, 9 reviewers, QA. 31 model responses.
+    Tokens: 62 input, 208,257 cache reads, 21,110 output. $0.027.
+  - After (`run_01M68XQ97EKGMPMZ52HDP83RAW`): 8 claims read, 8 judged (6 supported, 2
+    unverifiable), no `agent_failed`. 12 calls: the reader, 10 reviewers, QA. 39 model
+    responses. Tokens: 78 input, 308,602 cache reads, 32,073 output. $0.037.
+  - Four reviewers used all four turns on lookups and answered in a fifth: C1 and C7
+    unverifiable, C3 and C4 supported. Together those four calls cost $0.016.
+  - In both runs, a reviewer whose quote was refused (`quote_mismatch`) was asked again, once:
+    one such call before, two after.
+  - Tokens are the CLI's counts per model; cache writes are in the cost, not in the counts. The
+    cost is the CLI's estimate.
+- **Not comparable claim by claim:** the reader is not deterministic, and the two runs read the
+  pull request into different claims (eight each, worded differently). #2 was not run again.
+- **For the paper:** whether a verdict exists can depend on the agent harness, not only on the
+  model. With the same four turns, one backend always asked for the answer and the other did
+  not, and there Haiku went without one on 2 of 8 claims here and 3 of 7 in production. A
+  judge's turn limit has to leave room for the judgement. A study should report how many
+  verdicts were given in a turn that asked for them.
+
+## 2026-10-31 · fix · Code no file holds: written methods and packages
+- **Setup:** Repro's Action (v1.5.0) on two pull requests of Lectris, a public Python library.
+  Reproduced locally with `repro run --pr`, Docker sandbox, agents off.
+- **What the cards said:**
+  - PR #2 (readers, 245 tests): seven `no_covering_test` items, all
+    `@dataclass(frozen=True, slots=True)` classes with no method of their own. The tests
+    construct each of them through the readers' functions;
+  - PR #3 (text rules): one, `lectris.text:<module>#0`, an `__init__.py` holding only a
+    docstring. Every test module imports one of its submodules.
+- **Causes, checked on 3.12 and 3.13:**
+  - dataclasses compile the methods they write from a string. Their code's file is
+    `<string>` and their qualified name `__create_fn__.<locals>.__init__`. attrs writes
+    `<attrs generated methods m.C>`, and `NamedTuple`'s `__new__` is a `<string>` lambda. The
+    map keeps only code in the snapshot's files, so such a class never ran;
+  - `from lectris.text import punctuation` gives grimp, and Repro's `ast` reader, an edge to
+    `lectris.text.punctuation` only. Python runs `lectris/text/__init__.py` first.
+- **The fix** (map format 3): a written method is mapped as the class whose `__dict__` holds
+  it, found through its first argument, and selection reaches a package from its modules'
+  importers. With it, the same two runs give 0 missing items each (from 7 and 1). The evidence
+  is unchanged (247 and 152 items): the same tests ran.
+- **Decided at the same time:** a class whose body is all its code (an enum's members, an
+  exception class) runs nothing a test can be seen to run. Using an enum member runs no code,
+  and `Colour(1)` runs only `enum`'s. Such a class is now treated as module-level code,
+  covered by imports, as a module's own code already was.
+- **For the paper:**
+  - a per-test map that keeps only code with a file under-reports coverage of declarative
+    code: dataclasses, attrs classes and NamedTuples;
+  - `no_covering_test` counts from runs before map format 3 are inflated by such classes.
+    Coverage-gap numbers from earlier runs should be recomputed, or the inflation stated;
+  - the boundary stays explicit: a decorated class, or one with methods, must run some of its
+    code; a pydantic model's constructor is pydantic's code, invisible to the map.

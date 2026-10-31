@@ -201,6 +201,29 @@ changes select by imports (and a changed `conftest.py` selects the tests below i
 symbol is covered when a selected test ran it on base or, mapped again, on head; every other
 changed symbol outside test code becomes a `no_covering_test` item.
 
+Code that runs at import, and code written at run time, as treated since map format 3:
+- **Methods written for a class.** dataclasses, attrs and `NamedTuple` compile the methods they
+  write from strings (`<string>`, `<attrs generated methods m.C>`), so those methods have no
+  file of their own. The plugin maps such a method as its class: the class whose `__dict__`
+  holds it, found through the call's first argument (the instance, or the class for
+  `__new__`) with `type`'s own descriptors, so no code of the target runs. A frozen dataclass
+  with no method in its source is covered when a selected test constructs it, and a change
+  to its fields selects the tests that constructed it on base.
+- **A module's own code** (every `__init__.py` too, one holding only a docstring included) runs
+  once per process, mostly while pytest collects, so no test's map can hold it. It selects,
+  and is covered by, the tests whose modules import it, directly or not. Importing a module
+  imports the packages it is in first, as Python does: `from pkg.text import squash` runs
+  `pkg/text/__init__.py`, though the import graphs hold only the edge to `pkg.text.squash`.
+  The blast radius shown (§9) keeps the static imports alone.
+- **A class whose body is all its code** (`symbols.body_only`: no method or lambda in it, no
+  decorator, no `NamedTuple` base, not inside a function) has nothing a test can be seen to
+  run. An enum's members are plain class attributes and `Colour(1)` runs only `enum`'s code;
+  raising an exception class runs none of the target's code. Such a class is treated as
+  module-level code: its body ran at import. A class that is decorated (an `enum.unique` enum
+  too) or has a method must have run some of its code. A pydantic model's constructor is
+  pydantic's own code: a decorated pydantic dataclass that no method of its own runs stays a
+  `no_covering_test` item.
+
 ### 4.2 Outcome classification (`diff/outcome`)
 Every selected test is classified on base vs head: **F2P** (fail→pass), **P2P**, **P2F**,
 **F2F**, **new**, **removed**, **modified** (test code differs between sides, so outcomes
@@ -684,6 +707,8 @@ directory, never a worktree**, so the PR cannot inject `CLAUDE.md`, hooks or ski
 prompt is passed as a file because of the Windows command-line length limit. `max_turns`,
 `max_budget_usd` and a wall-clock timeout are set on every call; subagent spawning is held to
 its floor (depth 1, one at a time) and no Agent tool is in context (G01, `repro.agents.lockdown`).
+A call that must answer in a schema and is still looking things up when its turns run out is
+resumed, under the same lockdown, for its answer alone (§10.5).
 The tests run the bundled CLI against a local stand-in for the Messages API, and each planted
 file is first shown to load on an unlocked CLI (`test_agents_cli.py`).
 
@@ -807,6 +832,20 @@ tools) and checks it against the schema, honours `retry-after`, and prices calls
 table (a model without a price gets no `cost.estimate`). Tests never reach a model: the conftest
 points the API at a closed loopback port, and tests that start the CLI run behind a proxy that
 fails them on any connection past loopback.
+
+**Every call with an output schema gets to answer** (fix after 1.5.0; `agents/sdk.py`,
+`agents/openai_compat.py`). The OpenAI-compatible backend keeps the last two of `max_turns` for
+the answer and its retry. On the Agent SDK backend, the model may answer through
+`StructuredOutput` in any turn, so its lookups may use every one of `max_turns`. A call still
+looking things up when they run out (`error_max_turns`) is then resumed for up to two more
+turns: the answer, and the CLI's retry of one off the schema. The resumed session is told to
+answer now, under the same lockdown, offered no tool but `StructuredOutput`, within what is
+left of the call's dollar budget and time. The step shows as an `agent.state` `thinking` that
+says so. Its turns, tokens and cost are the call's, and so the ledger's. Its answer is checked
+like any other (§10.3). Repro 1.5.0 had no such step. Haiku reviewers on real pull requests
+spent all four turns on lookups and ended with no verdict (`docs/paper/LOG.md`). A Claude
+call's `turns` are the model's responses, which `max_turns` limits. The CLI's own `num_turns`
+counts differently.
 
 Concurrency defaults to `min(12, free RAM in GiB)`
 (research/04 §1.10: about 1 GiB per SDK subprocess). The UI always shows 12 dispatch slots, with

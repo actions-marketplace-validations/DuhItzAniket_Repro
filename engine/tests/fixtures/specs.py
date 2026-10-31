@@ -2,7 +2,8 @@
 
 ``honest-fix`` (A07), ``selection`` and ``untested`` (D05), ``flaky`` and ``test-tamper``
 (D06), ``perf-regress`` (D07), ``breaks-one`` (Gate D), ``injection`` (G03), ``probe-semantic``
-(G07). The other fixtures in TEST_STRATEGY §3 are added by the phases that need them.
+(G07), ``generated`` (classes and packages D05's map missed). The other fixtures in
+TEST_STRATEGY §3 are added by the phases that need them.
 """
 
 from fixtures.repo_builder import RepoSpec
@@ -1023,6 +1024,188 @@ NET_CALL = RepoSpec(
     },
 )
 
+_WRITTEN = '''"""Classes whose __init__ is written for them at run time, as attrs does."""
+
+
+def record(*fields):
+    def build(cls):
+        body = "".join(f"    self.{name} = {name}\\n" for name in fields) or "    pass\\n"
+        source = f"def __init__(self, {', '.join(fields)}):\\n{body}"
+        where = f"<record generated init {cls.__module__}.{cls.__qualname__}>"
+        namespace = {}
+        exec(compile(source, where, "exec"), namespace)
+        cls.__init__ = namespace["__init__"]
+        return cls
+
+    return build
+'''
+
+_TOKENS = '''"""Tokens of a marked-up text."""
+
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True, slots=True)
+class Open:
+    """A block starts."""
+
+    name: str
+
+
+def tokens(text):
+    return [Open(word) for word in text.split()]
+'''
+
+_TEST_TOKENS = """from forms.tokens import Open, tokens
+
+
+def test_tokens():
+    assert tokens("a b") == [Open("a"), Open("b")]
+"""
+
+_TEST_WRITTEN = """from forms.written import record
+
+
+@record("x", "y")
+class Point:
+    pass
+
+
+def test_record():
+    point = Point(1, 2)
+    assert (point.x, point.y) == (1, 2)
+"""
+
+_MARKS = '''"""Marks between tokens."""
+
+from dataclasses import dataclass
+from enum import Enum
+from typing import NamedTuple
+
+from forms.written import record
+
+
+class Kind(Enum):
+    OPEN = "open"
+    CLOSE = "close"
+
+
+class MarkError(ValueError):
+    """A mark that cannot be read."""
+
+
+@dataclass(frozen=True, slots=True)
+class Close:
+    """A block ends."""
+
+
+class Pair(NamedTuple):
+    key: str
+    value: str
+
+
+@record("start", "end")
+class Span:
+    """A run of characters."""
+
+
+@dataclass(frozen=True)
+class Unused:
+    """Nothing constructs it."""
+
+    note: str
+
+
+def read(text):
+    if not text:
+        raise MarkError("an empty mark")
+    if text == "/":
+        return Close()
+    key, _, value = text.partition("=")
+    if value:
+        return Pair(key, value)
+    return Span(0, len(text))
+
+
+def kind(text):
+    return Kind.CLOSE if text == "/" else Kind.OPEN
+'''
+
+_TEST_MARKS = """import pytest
+
+from forms.marks import Close, Kind, MarkError, Pair, kind, read
+
+
+def test_close():
+    assert read("/") == Close()
+
+
+def test_pair():
+    assert read("a=b") == Pair("a", "b")
+
+
+def test_span():
+    assert read("word").end == 4
+
+
+def test_empty():
+    with pytest.raises(MarkError):
+        read("")
+
+
+def test_kind():
+    assert kind("/") is Kind.CLOSE
+"""
+
+_SQUASH = '''"""Whitespace."""
+
+
+def spaces(text):
+    return " ".join(text.split())
+'''
+
+_TEST_TEXT = """from forms.text import squash
+
+
+def test_spaces():
+    assert squash.spaces(" a  b ") == "a b"
+"""
+
+# Classes whose methods are written for them (dataclasses, NamedTuple, an attrs-style decorator),
+# classes with nothing but a body (an enum, an exception) and a docstring-only package: what the
+# tests construct and import is covered; the one dataclass nothing constructs is not.
+GENERATED = RepoSpec(
+    name="generated",
+    description="Classes whose methods are written at run time, and a docstring-only package.",
+    base={
+        "pyproject.toml": '[project]\nname = "forms-fixture"\nversion = "0.1.0"\n',
+        "forms/__init__.py": "",
+        "forms/written.py": _WRITTEN,
+        "forms/tokens.py": _TOKENS,
+        "tests/test_tokens.py": _TEST_TOKENS,
+        "tests/test_written.py": _TEST_WRITTEN,
+    },
+    heads={
+        "feat/marks": {
+            "forms/tokens.py": _TOKENS.replace(
+                "    name: str\n", "    name: str\n    depth: int = 0\n"
+            ),
+            "forms/marks.py": _MARKS,
+            "forms/text/__init__.py": '"""Text helpers."""\n',
+            "forms/text/squash.py": _SQUASH,
+            "tests/test_marks.py": _TEST_MARKS,
+            "tests/test_text.py": _TEST_TEXT,
+        }
+    },
+    pr_description={
+        "feat/marks": (
+            "Read marks between tokens\n\n"
+            "read() turns a mark into a Close, a Pair or a Span; kind() names it; Open gets a "
+            "depth; squash.spaces() collapses whitespace."
+        )
+    },
+)
+
 ALL_SPECS = {
     spec.name: spec
     for spec in (
@@ -1045,5 +1228,6 @@ ALL_SPECS = {
         FORBIDDEN_PATH,
         INVARIANTS_PASS,
         NET_CALL,
+        GENERATED,
     )
 }

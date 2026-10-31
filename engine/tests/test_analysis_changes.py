@@ -313,6 +313,24 @@ def test_line_spans_on_each_side(tmp_path: Path) -> None:
     assert change.payload()["base_lines"] == [7, 9]
 
 
+def test_a_class_is_only_a_body_when_it_is_one_on_every_side(tmp_path: Path) -> None:
+    """Test selection treats such a class as module-level code (``symbols.body_only``)."""
+    repo = Repo(tmp_path / "repo")
+    enum = "import enum\n\n\nclass Kind(enum.Enum):\n    A = 1\n"
+    base = repo.commit({**PACKAGE, "pkg/kinds.py": enum, "pkg/more.py": enum})
+    head = repo.commit(
+        {
+            "pkg/kinds.py": enum + "    B = 2\n",
+            "pkg/more.py": enum + "    B = 2\n\n    def label(self):\n        return 'b'\n",
+            "pkg/new.py": "class Failure(ValueError):\n    pass\n",
+        }
+    )
+    found = changed_symbols_between(Git(repo.path), base, head).changes
+    shapes = {c.symbol_id: c.body_only for c in found if c.kind == "class"}
+    assert shapes == {"pkg.kinds:Kind#0": True, "pkg.more:Kind#0": False, "pkg.new:Failure#0": True}
+    assert "body_only" not in found[0].payload()  # not part of the event
+
+
 def test_files_that_cannot_be_read_are_reported_not_guessed(tmp_path: Path) -> None:
     repo = Repo(tmp_path / "repo")
     deep = "x = " + "+".join(["1"] * 20_000) + "\n"  # parses, but too deep to build an AST

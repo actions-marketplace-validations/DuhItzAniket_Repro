@@ -61,3 +61,9 @@ still shows 12 slots and marks queued agents as `waiting`.
 - Decision 4 (G02, `repro.agents.cassette`): cassettes are keyed by prompt version, model and an
   input digest taken with run-specific IDs normalised, and a replay maps the recording's IDs to
   the run's; a missing cassette raises, and replay has no backend through which to call.
+- The answer's turns (fix after 1.5.0, 2026-10-31, `repro.agents.sdk`): a call with an output
+  schema whose lookups end `error_max_turns` is resumed (`resume`, the call's own session, in
+  its own configuration directory) for up to two turns. It is told to answer now, and
+  `StructuredOutput` is the only tool in its context and the only one the gate permits. Every
+  other point of decision 2 holds for that session as for the first. Its dollar budget is what
+  the first session left, and the call's time limit covers both.

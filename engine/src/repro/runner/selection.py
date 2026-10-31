@@ -5,7 +5,9 @@ no selected test runs.
   class's own code (its body: attributes, bases, decorators) runs at import, so a change to it
   reaches the tests that ran one of its methods (H06), as coverage counts it below;
 - ``module_import``: tests whose module imports, directly or not, a module whose own code
-  changed (the import graphs of C07), or that sit below a changed ``conftest.py``;
+  changed (the import graphs of C07, where a module imports its package first, as Python does:
+  ``from pkg import sub`` runs ``pkg/__init__.py``), or a class whose body is all its code; or
+  tests that sit below a changed ``conftest.py``;
 - ``new_test``, ``modified_test``: tests the change added, or whose function it changed.
 
 The map is each test's *places* (``repro.runner.pytest``), turned into the symbols of C06 here:
@@ -14,11 +16,22 @@ first line the ordinal when a name repeats. Code with no symbol of its own (a la
 comprehension, an annotation scope) belongs to the nearest enclosing symbol.
 
 A changed symbol is **covered** when a selected test ran it, on base (the map) or on head (the
-selected tests' own map there). Module-level code runs at import, before any test, so a module's
-own code is covered when a selected test's module imports it; a class's own code (its body) when
-a selected test ran one of its methods. What is not covered is a ``no_covering_test`` item: an
-explicit gap on the card, never a pass. Test code itself (the modules tests are collected from,
-and ``conftest.py``) is not asked to be covered.
+selected tests' own map there). The methods dataclasses, attrs and ``NamedTuple`` write for a
+class are mapped as the class (the plugin), so constructing one runs it.
+
+**Code that runs at import** cannot be in any test's map: a module is imported once per
+process, mostly while pytest collects, before any test starts. So:
+- a module's own code (a package's ``__init__.py`` too, a docstring alone included) is covered
+  when a selected test's module imports it, directly or not, packages imported first;
+- a class's own code (its body) runs at import too. A class that has code to run later (a
+  method of its own, or one written for it) is covered when a selected test ran some of it. A
+  class whose body is all its code (``symbols.body_only``: an enum's members, an exception
+  class, a ``Protocol``; no method, decorator or ``NamedTuple`` base) has nothing a test can be
+  seen to run, so it is treated as module-level code: selected and covered by imports.
+
+What is not covered is a ``no_covering_test`` item: an explicit gap on the card, never a pass.
+Test code itself (the modules tests are collected from, and ``conftest.py``) is not asked to be
+covered.
 """
 
 import hashlib
@@ -44,8 +57,9 @@ REASONS: Final[tuple[SelectionReason, ...]] = (
     "new_test",
     "modified_test",
 )
-#: Bumped whenever what a cached map holds, or how it is made, changes.
-MAP_FORMAT: Final = 2
+#: Bumped whenever what a cached map holds, or how it is made, changes (3: methods written for
+#: a class, mapped as the class).
+MAP_FORMAT: Final = 3
 CONFTEST: Final = "conftest.py"
 
 
@@ -206,6 +220,15 @@ def _is_module_level(symbol: str) -> bool:
     return f":{MODULE_QUALNAME}#" in symbol
 
 
+def _at_import(change: SymbolChange) -> list[str]:
+    """The IDs of a change whose code runs only at import: a module's own code, or a class whose
+    body is all its code. Imports select them, and cover them."""
+    ids = [i for i in (base_id(change), head_id(change)) if i]
+    if change.body_only or any(_is_module_level(i) for i in ids):
+        return ids
+    return []
+
+
 def _test_path(test: str) -> str:
     return test.split("::", 1)[0]
 
@@ -244,13 +267,11 @@ def select(
         if touched:
             add(test, "blast_radius", touched)
 
-    module_level = sorted(
-        {i for c in changes for i in (base_id(c), head_id(c)) if i and _is_module_level(i)}
-    )
+    module_level = sorted({i for c in changes for i in _at_import(c)})
     conftests = sorted({c.file for c in changes if PurePosixPath(c.file).name == CONFTEST})
     tests = {**base.tests, **head.tests}
     for symbol in module_level:
-        reach = downstream([module_of(symbol)], *graphs)
+        reach = downstream([module_of(symbol)], *graphs, packages=True)
         for test, own in tests.items():
             if own is not None and module_of(own) in reach:
                 add(test, "module_import", [symbol])
@@ -307,8 +328,8 @@ def uncovered(
         ids = [i for i in (base_id(change), head_id(change)) if i is not None]
         if PurePosixPath(change.file).name == CONFTEST or module_of(ids[0]) in own_tests:
             continue  # test code
-        if any(_is_module_level(i) for i in ids):
-            covered = any(i in imported for i in ids)
+        if _at_import(change):
+            covered = any(i in imported for i in ids) or any(i in ran for i in ids)
         elif change.kind == "class":
             prefixes = tuple(i.partition("#")[0] + "." for i in ids)
             covered = any(i in ran for i in ids) or any(

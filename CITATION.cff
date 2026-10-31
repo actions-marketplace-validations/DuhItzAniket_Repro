@@ -7,8 +7,8 @@ authors:
 repository-code: "https://github.com/DuhItzAniket/Repro"
 doi: 10.5281/zenodo.23524047
 license: Apache-2.0
-version: 1.5.0
-date-released: 2026-10-25
+version: 1.6.0
+date-released: 2026-10-31
 keywords:
   - software engineering
   - code review
