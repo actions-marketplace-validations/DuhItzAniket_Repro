@@ -13,11 +13,11 @@ e2b = ["repro-engine[e2b]"]
 [dependency-groups]
 dev = [
   "pytest>=9.1.1",
-  "ruff>=0.17.1",
+  "ruff>=0.17.3",
   "mypy>=2.4.0",
   "types-jsonschema>=4.26.0",
-  "hypothesis>=6.170.1",
-  "httpx2>=2.13.1",
+  "hypothesis>=6.170.12",
+  "httpx2>=2.16.0",
   "types-pyyaml>=6.0.12",
   "xmlschema>=4.3.2",
 ]
