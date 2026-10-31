@@ -62,7 +62,7 @@ DOI = "https://doi.org/10.5281/zenodo.23524047"
 repro = "repro.cli:app"
 
 [build-system]
-requires = ["uv_build>=0.13.1,<0.14"]
+requires = ["uv_build>=0.13.3,<0.14"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
