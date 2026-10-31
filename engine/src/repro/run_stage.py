@@ -6,6 +6,7 @@ execution, and its evidence as events.
   that cannot be provisioned is an ``environment_failed`` item with the reason, and the run goes
   on without running tests: the change is unverifiable, not the run broken.
 - ``tests`` (run): ``repro.runner.twosided.reproduce``. ``test.selected`` per selected test,
+  after its ``graph.node`` and ``covers`` edges for the stage (``emit_selection_graph``),
   ``test.started`` / ``test.finished`` per test and attempt.
 - ``outcomes`` (diff): ``evidence.created`` with ``diff.outcome`` per classified test and
   ``diff.tests`` per test change; what the sandbox detected; ``missing.recorded`` for each
@@ -48,7 +49,7 @@ The jobs share a ``RunState``; ``RunState.close`` removes what they left (Docker
 import asyncio
 import sys
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Final, Literal
@@ -61,6 +62,8 @@ if TYPE_CHECKING:
     from repro.agents.sources import RepoSources
 from repro.analysis import StaticAnalysis
 from repro.analysis.api import api_diff
+from repro.analysis.blast import MAX_TEST_NODES, selection_graph
+from repro.analysis.changes import SymbolChange
 from repro.gitops import Git
 from repro.gitops import diff as changed_files
 from repro.ids import new_evidence_id
@@ -308,13 +311,15 @@ def _sandbox_job(
 class _TestEvents:
     """``test.started`` / ``test.finished`` per selected test and attempt, as runs end."""
 
-    def __init__(self, ctx: JobContext) -> None:
+    def __init__(self, ctx: JobContext, changes: Sequence[SymbolChange]) -> None:
         self.ctx = ctx
+        self.changes = changes
         self.attempts: dict[tuple[str, str], int] = defaultdict(int)
         self.plan: TracePlan | None = None  # what A, A2 and H trace: their samples (E07)
 
     def selected(self, chosen: tuple[Selected, ...]) -> None:
         self.ctx.log(f"selected {len(chosen)} tests")
+        emit_selection_graph(self.ctx, ((s.test, s.symbols) for s in chosen), self.changes)
         for item in chosen:
             self.ctx.emit(
                 "test.selected", status="ok", payload=item.payload(), target={"test": item.test}
@@ -365,6 +370,24 @@ class _TestEvents:
             self.ctx.log(f"{side}: samples stopped at {MAX_SAMPLES}", level="warning")
 
 
+def emit_selection_graph(
+    ctx: JobContext,
+    selected: Iterable[tuple[str, Iterable[str]]],
+    changes: Sequence[SymbolChange],
+) -> None:
+    """The selected tests as graph nodes, with ``covers`` edges to the changed symbols that
+    selected them (``selection_graph``), before their ``test.selected`` events: the points the
+    stage's strands fire from (B14). Drawing only: no check reads them."""
+    found = selection_graph(selected, changes)
+    for kind, payload in found.events:
+        ctx.emit(kind, status="ok", payload=payload)
+    if found.left_out:
+        ctx.log(
+            f"{found.left_out} selected tests not drawn on the stage (at most "
+            f"{MAX_TEST_NODES} test nodes, those selected for the most changed symbols)"
+        )
+
+
 def _seeds(run_id: str) -> dict[str, Any]:
     """``environment`` evidence: the seeds base's two runs use (A, then A2), for the card's
     conditions (F05)."""
@@ -406,7 +429,7 @@ def _tests_job(git: Git, base: str, head: str, state: RunState, *, cache: Path) 
             sides[0].env.python_version,
             state.platform.get("base", "?"),
         )
-        events = _TestEvents(ctx)
+        events = _TestEvents(ctx, analysis.changes.changes)
         resolvers = selection.side_resolvers(git, base, head)
         plan = trace_plan(analysis.changes.changes, resolvers)
         events.plan = plan or None

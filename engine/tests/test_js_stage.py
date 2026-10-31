@@ -17,6 +17,7 @@ import pytest
 
 import ts_support
 from gitrepo import Entry, Repo
+from graph_support import check_selection_graph
 from repro import language
 from repro.analysis import javascript
 from repro.bus import EventBus
@@ -143,6 +144,14 @@ def test_a_regression_and_a_silent_change_flag_the_card(tmp_path: Path, tools: P
         "test/m.test.js::m labels": ["blast_radius"],
         "test/m.test.js::m old": ["blast_radius"],
     }
+    check_selection_graph(events)  # B14: the selected tests as nodes, strands' sources
+    covers = {
+        (e["payload"]["source"], e["payload"]["target"])
+        for e in events
+        if e["kind"] == "graph.edge" and e["payload"]["type"] == "covers"
+    }
+    assert ("test/m.test.js::m adds", "src/m.js:add#0") in covers
+    assert ("test/m.test.js::m labels", "src/m.js:label#0") in covers
     classes = {
         o["targets"][0]["test"]: o["data"]["class"] for o in evidence(events, "test_outcome")
     }
@@ -182,6 +191,7 @@ def test_edited_tests_are_checked_for_what_an_agent_does_to_them(
     }
     assert selected["test/m.test.js::m adds"] == ["modified_test"]
     assert selected["test/m.test.js::m new"] == ["new_test"]
+    check_selection_graph(events)
     found = evidence(events, "test_change")
     changes = {(t["targets"][0].get("test"), t["data"]["change"]) for t in found}
     assert changes == {

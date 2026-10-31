@@ -1,9 +1,13 @@
 // B14: the relations strands fire from, and each file's recent activity.
+import type { ReproEvent } from "@repro/events";
 import { describe, expect, it } from "vitest";
 import { CockpitModel } from "../../model/cockpit";
-import { runEvents } from "../../model/test-support";
+import { renumber, runEvents } from "../../model/test-support";
 import { eventFile } from "../ring/sections";
 import { streams } from "../streams/style";
+import { forceLayout } from "./force";
+import { HIT_FUNCTION, HIT_TEST, newHit, placedBunch, strandHit } from "./layers";
+import { layoutInput } from "./layout-input";
 import { MAX_BUNCH, ReachIndex } from "./reach";
 
 const model = new CockpitModel();
@@ -88,5 +92,99 @@ describe("ReachIndex", () => {
       expect(event !== null && streams(event)).toBe(true);
       if (event !== null) expect(eventFile(model, event)).toBe("timekeeper/parse.py");
     }
+  });
+});
+
+/**
+ * The demo run as the engine writes it: modules and changed symbols at build, no calls edges,
+ * and (`tests`) each selected test's node and `covers` edges just before the first
+ * `test.selected`, as the run stage emits them. Without `tests`, the engine before them.
+ */
+function engineLog(tests: boolean): ReproEvent[] {
+  const kept = runEvents().filter(
+    (e) =>
+      !(e.kind === "graph.node" && e.payload.node.type === "test") &&
+      !(e.kind === "graph.edge" && e.payload.type !== "imports"),
+  );
+  const first = kept.findIndex((e) => e.kind === "test.selected");
+  const template = kept[first] as ReproEvent;
+  const symbols = new Set(
+    kept.flatMap((e) =>
+      e.kind === "graph.node" && e.payload.node.type !== "module" ? [e.payload.node.id] : [],
+    ),
+  );
+  const nodes: object[] = [];
+  const edges: object[] = [];
+  for (const e of kept) {
+    if (e.kind !== "test.selected" || !tests) continue;
+    const test = e.target?.test as string;
+    const sep = test.indexOf("::");
+    const node = { id: test, type: "test", name: test.slice(sep + 2), file: test.slice(0, sep) };
+    nodes.push({
+      ...template,
+      kind: "graph.node",
+      target: null,
+      payload: { node: { ...node, line: null } },
+    });
+    for (const symbol of e.payload.symbols.filter((s) => symbols.has(s)))
+      edges.push({
+        ...template,
+        kind: "graph.edge",
+        target: null,
+        payload: { source: test, target: symbol, type: "covers" },
+      });
+  }
+  return renumber([
+    ...kept.slice(0, first),
+    ...nodes,
+    ...edges,
+    ...kept.slice(first),
+  ]) as ReproEvent[];
+}
+
+/** The bunch the event at `i` fires in a model of `events`, landing at (1, 0). */
+function bunchAt(events: readonly ReproEvent[], pick: (e: ReproEvent) => boolean) {
+  const model = new CockpitModel();
+  model.ingest(events);
+  const reach = new ReachIndex(model);
+  reach.sync();
+  const positions = forceLayout(layoutInput(model.graph));
+  const i = events.findLastIndex(pick);
+  const hit = newHit();
+  strandHit(model, events[i] as ReproEvent, hit);
+  const out = new Int32Array(MAX_BUNCH);
+  const n = placedBunch(reach, hit, i, out, positions, 1, 0);
+  const ids = Array.from(out.subarray(0, n), (node) => model.graph.ids[node] as string);
+  return {
+    hit,
+    ids,
+    types: ids.map((id) => model.graph.nodeTypeName(model.graph.byId.get(id) as number)),
+  };
+}
+
+describe("an engine log's test nodes (B14)", () => {
+  const traceOfParseDate = (e: ReproEvent) =>
+    e.kind === "trace.sample" && e.payload.symbol_id === "timekeeper.parse:parse_date#0";
+
+  it("give a function's trace a bunch of several strands, from the tests that reach it", () => {
+    const before = bunchAt(engineLog(false), traceOfParseDate);
+    expect(before.hit.role).toBe(HIT_FUNCTION);
+    expect(before.ids).toHaveLength(0); // no test nodes: nothing to fire from
+    const after = bunchAt(engineLog(true), traceOfParseDate);
+    expect(after.hit.role).toBe(HIT_FUNCTION);
+    expect(after.ids.length).toBeGreaterThanOrEqual(4);
+    expect(after.ids.length).toBeLessThanOrEqual(MAX_BUNCH);
+    expect(new Set(after.types)).toEqual(new Set(["test"]));
+    expect(new Set(after.ids).size).toBe(after.ids.length);
+  });
+
+  it("give a test's events a bunch: the test, then the functions it was selected for", () => {
+    const finished = (e: ReproEvent) =>
+      e.kind === "test.finished" && e.target?.test === "tests/test_parse.py::test_naive_input";
+    const { hit, ids, types } = bunchAt(engineLog(true), finished);
+    expect(hit.role).toBe(HIT_TEST);
+    expect(ids[0]).toBe("tests/test_parse.py::test_naive_input");
+    expect(ids).toContain("timekeeper.parse:parse_date#0");
+    expect(types.slice(1).every((type) => type !== "test" && type !== "module")).toBe(true);
   });
 });

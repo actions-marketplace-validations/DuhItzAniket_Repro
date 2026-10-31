@@ -420,6 +420,16 @@ Compared with the original brief, the new kinds are `stage.*`, `symbol.changed`,
 `missing.recorded`, `verdict.rejected` and `cost.estimate`. `worktree.ready` is renamed to `snapshot.ready`, because
 target code runs from snapshots, not worktrees. Adding kinds does not change core fields.
 
+The graph has two parts. At build: every module, every import and a node per changed function,
+method or class. In the run stage, once the tests are selected and before their
+`test.selected` events: a node per selected test (`type: test`, its ID the test ID that events
+name in `target.test`) and a `covers` edge from it to each changed symbol's node that selected
+it. So `graph.node` and `graph.edge` may come in `build` or `run`. These test nodes are what the
+stage's bunches of strands fire from (B14). A run adds at most 600 of them, the stress fixture's
+count that the cockpit's budget is measured with; past that, the tests selected for the most
+changed symbols are drawn, and every selected test is still run. No check reads the graph: the
+card, the gap rules and the agents' evidence are the same without it.
+
 ### 5.3 Rules
 - **Append-only.** Corrections are new events (e.g. `verdict.rejected` follows a
   `verdict.issued` that failed validation). Stored events are never edited.

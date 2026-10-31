@@ -839,10 +839,10 @@ class SnapshotReadyEvent(EventFields):
 
 
 class GraphNodeEvent(EventFields):
-    """A node of the dependency graph."""
+    """A node of the dependency graph (modules and changed symbols, or the selected tests)."""
 
     kind: Literal['graph.node']
-    stage: Literal['build']
+    stage: Literal['build', 'run']
     pv: Literal[1]
     payload: GraphNodePayload
 

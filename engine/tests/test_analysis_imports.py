@@ -11,6 +11,8 @@ import pytest
 
 from gitrepo import Repo
 from repro.analysis import ImportGraph, analyse, graph_payloads, import_graph, module_names
+from repro.analysis.blast import selection_graph
+from repro.analysis.changes import SymbolChange
 from repro.analysis.imports import DEFAULT_TIMEOUT
 from repro.gitops import Git, GitError
 from repro.gitops.snapshot import case_insensitive
@@ -229,6 +231,79 @@ def test_graph_events_cover_both_sides(tmp_path: Path) -> None:
     for kind, payload in events:
         model = GraphNodePayload if kind == "graph.node" else GraphEdgePayload
         model.model_validate(payload)
+
+
+CHANGES = (
+    SymbolChange("app.core:f#0", "modified", "function", "app/core.py", (1, 2), (1, 3)),
+    SymbolChange(  # moved: its tests name it by its base ID
+        "app.new:g#0", "moved", "function", "app/new.py", (4, 5), (1, 2), "app.old:g#0"
+    ),
+    SymbolChange("app.core:<module>#0", "modified", "module", "app/core.py", (1, 1), (1, 1)),
+)
+
+
+def test_selected_tests_become_nodes_with_covers_edges_to_changed_symbols() -> None:
+    selected = [
+        ("tests/test_core.py::TestF::test_one", ["app.core:f#0", "app.old:g#0"]),
+        ("tests/test_core.py::test_two", ["app.core:<module>#0"]),  # module-level: no node
+        ("tests/test_core.py::test_two", ["app.core:f#0"]),  # again (a second map): once
+        ("tests/test_new.py::test_own", ["tests.test_new:test_own#0"]),  # not a node
+    ]
+    found = selection_graph(selected, CHANGES)
+    nodes = [p["node"] for kind, p in found.events if kind == "graph.node"]
+    edges = [
+        (p["source"], p["target"], p["type"]) for kind, p in found.events if kind != "graph.node"
+    ]
+    assert nodes == [
+        {
+            "id": "tests/test_core.py::TestF::test_one",
+            "type": "test",
+            "name": "TestF.test_one",
+            "file": "tests/test_core.py",
+            "line": None,
+        },
+        {
+            "id": "tests/test_core.py::test_two",
+            "type": "test",
+            "name": "test_two",
+            "file": "tests/test_core.py",
+            "line": None,
+        },
+        {
+            "id": "tests/test_new.py::test_own",
+            "type": "test",
+            "name": "test_own",
+            "file": "tests/test_new.py",
+            "line": None,
+        },
+    ]
+    assert edges == [
+        ("tests/test_core.py::TestF::test_one", "app.core:f#0", "covers"),
+        ("tests/test_core.py::TestF::test_one", "app.new:g#0", "covers"),  # its node's ID
+        ("tests/test_core.py::test_two", "app.core:f#0", "covers"),
+    ]
+    assert found.left_out == 0
+    kinds = [kind for kind, _ in found.events]
+    assert kinds == sorted(kinds, key=lambda k: k != "graph.node")  # nodes before edges
+    for kind, payload in found.events:
+        model = GraphNodePayload if kind == "graph.node" else GraphEdgePayload
+        model.model_validate(payload)
+
+
+def test_a_large_selection_keeps_the_tests_selected_for_the_most_symbols() -> None:
+    selected = [(f"tests/test_x.py::test_{i:02}", ["app.core:f#0"]) for i in range(10)]
+    selected.append(("tests/test_x.py::test_both", ["app.core:f#0", "app.old:g#0"]))
+    selected.append(("tests/" + "x" * 1100 + ".py::test_long", ["app.core:f#0"]))  # too long
+    found = selection_graph(selected, CHANGES, limit=3)
+    nodes = [p["node"]["id"] for kind, p in found.events if kind == "graph.node"]
+    assert nodes == [
+        "tests/test_x.py::test_00",
+        "tests/test_x.py::test_01",
+        "tests/test_x.py::test_both",
+    ]
+    assert found.left_out == 9
+    sources = {p["source"] for kind, p in found.events if kind == "graph.edge"}
+    assert sources == set(nodes)  # no edge from a test without a node
 
 
 # This repository's own history, pinned: C05 (#33) changed repro.api.stream. Each distance was

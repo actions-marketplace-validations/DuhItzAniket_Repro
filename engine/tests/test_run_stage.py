@@ -23,6 +23,7 @@ from card_support import normalised
 from cli_support import clean_env
 from fixtures.repo_builder import build_repo
 from fixtures.specs import ALL_SPECS
+from graph_support import check_selection_graph
 from repro.card import canonical, digest, regenerate
 from repro.cli import app
 from repro.config import load_settings
@@ -113,6 +114,7 @@ def check_against_expectation(name: str, events: list[dict[str, Any]]) -> None:
         e["target"]["test"]: e["payload"]["reasons"] for e in events if e["kind"] == "test.selected"
     }
     assert selected == expected["selection"].get("selected", {}), log
+    check_selection_graph(events)  # B14: the selected tests as nodes, strands' sources
     evidence = {
         e["payload"]["evidence"]["id"]: e["payload"]["evidence"]
         for e in events
@@ -222,6 +224,13 @@ def test_a_run_reproduces_the_fixture(name: str, tmp_path: Path, golden: Golden)
         assert change["data"]["weakened"] == expected["expected"]["weakened"]
         logged = [e["payload"]["message"] for e in events if e["kind"] == "log.line"]
         assert "policy (repro.yml on base): invariants no_network, forbidden_paths" in logged
+    if name == "selection":  # B14: each test reaches the changed functions that selected it
+        covers = {
+            (e["payload"]["source"], e["payload"]["target"])
+            for e in events
+            if e["kind"] == "graph.edge" and e["payload"]["type"] == "covers"
+        }
+        assert ("tests/test_prices.py::test_net", "shop.prices:net#0") in covers, sorted(covers)
     if name == "noisy":  # E03: each traced run's observations and the comparison, stored
         assert_observations_stored(tmp_path)
     if name == "perf-regress":  # ABBA: ten timing runs on each side for the tests worth timing

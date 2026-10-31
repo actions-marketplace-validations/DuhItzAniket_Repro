@@ -16,10 +16,11 @@ read a Python one.
 
   An image of the user's (``sandbox_image``, J04) is for Python projects, and refused.
 - ``tests`` (run): A (base, with the map and the traces), H (head, the same), then the tests
-  both maps select (``jsmap.select``, ``test.selected``), A2 (base again, shuffled, traced),
-  and each test that flipped, run again ``RERUNS`` times on each side. The whole suite runs, so
-  every test whose outcome differs is reported too, selected or not (``test.started``,
-  ``test.finished``); ``trace.sample`` per previewed call.
+  both maps select (``jsmap.select``; ``test.selected``, after the tests' graph nodes and
+  ``covers`` edges), A2 (base again, shuffled, traced), and each test that flipped, run again
+  ``RERUNS`` times on each side. The whole suite runs, so every test whose outcome differs is
+  reported too, selected or not (``test.started``, ``test.finished``); ``trace.sample`` per
+  previewed call.
 - ``outcomes`` (diff): ``diff.outcome`` per reported test, classified as Python's are
   (``runner.outcomes.classify``; a test whose own code changed is ``modified``); ``diff.tests``
   for a test removed, an edited test skipped on head, and an edited test whose assertions are
@@ -77,6 +78,7 @@ from repro.run_stage import (
     TESTS_TIMEOUT_S,
     Backend,
     RunState,
+    emit_selection_graph,
     invariants_job,
 )
 from repro.runner import observations
@@ -524,6 +526,9 @@ def _tests_job(work: Path, state: JsState, options: JsOptions, commits: Mapping[
         maps = [m for m in (a.map, h.map) if m is not None]
         state.selected = jsmap.select(state.effective, maps, state.own)
         ctx.log(f"selected {len(state.selected)} tests of {len(a.outcomes | h.outcomes)}")
+        changed = state.analysis.changes.changes if state.analysis is not None else ()
+        chosen = ((test, why.symbols) for test, why in state.selected.items())
+        emit_selection_graph(ctx, chosen, changed)
         for test, why in state.selected.items():
             payload = {"reasons": list(why.reasons), "symbols": list(why.symbols)}
             ctx.emit("test.selected", status="ok", payload=payload, target={"test": test})

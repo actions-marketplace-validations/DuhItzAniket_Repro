@@ -1118,11 +1118,11 @@ export interface SnapshotReadyEvent extends EventFields {
 }
 
 /**
- * A node of the dependency graph.
+ * A node of the dependency graph (modules and changed symbols, or the selected tests).
  */
 export interface GraphNodeEvent extends EventFields {
   kind: "graph.node";
-  stage: "build";
+  stage: "build" | "run";
   pv: 1;
   payload: GraphNodePayload;
 }
@@ -1446,7 +1446,7 @@ export const KIND_STAGES: { readonly [K in EventKind]: readonly Stage[] } = {
   "cost.estimate": ["read", "build", "run", "diff", "check", "review", "card"],
   "claim.extracted": ["read"],
   "snapshot.ready": ["build"],
-  "graph.node": ["build"],
+  "graph.node": ["build", "run"],
   "graph.edge": ["build", "run"],
   "symbol.changed": ["build"],
   "blast.computed": ["build"],

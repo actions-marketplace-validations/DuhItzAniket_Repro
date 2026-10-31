@@ -6,6 +6,21 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+- The selected tests on the stage. Once a run selects its tests, the engine adds a graph node
+  for each (`type: test`, its test ID) and a `covers` edge to each changed function, method or
+  class that selected it, before the `test.selected` events, for Python and for JavaScript and
+  TypeScript. The stage's bunches of strands fire from these nodes: a traced function's bunch
+  comes from the tests that reach it, up to 8 strands, and a test's from the test and what it
+  reaches. Before, a real run had almost nothing to fire from: one on a small Python library
+  drew 73 modules and only 5 function nodes, and its bunches had 1 to 3 strands. A run adds at
+  most 600 test nodes (the stress fixture's count, which the budget is measured with), those
+  selected for the most changed symbols first; every selected test still runs. The schema now
+  allows `graph.node` in the run stage, as it already did `graph.edge`; logs written before are
+  valid and replay the same. A test whose file has no module node is placed inside the web,
+  not on its rim. The card, the gap rules and the agents' evidence do not read the graph and
+  are unchanged. [B14]
+
 ### Changed
 - CI: a pull request that changes only documentation takes a fast path. `lint` and `security`
   run, the two required `test` checks pass with their steps skipped, and the slow jobs are

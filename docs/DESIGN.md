@@ -179,7 +179,8 @@ Dark only for now (the look depends on it). Define tokens on `:root` anyway.
   event carries file contents, so a card is the file's **outline from events** (B06), laid out
   like the reference's code cards (B14):
   - a header, `// package / module`, with a rule after it;
-  - rows of `line  code`: its functions, classes and tests with their line numbers (`graph.node`),
+  - rows of `line  code`: its functions, classes and tests with their line numbers (`graph.node`;
+    the engine's test nodes have none, so a test file's tests come first, by name),
     changed ones in `--flag` (`symbol.changed`), then its imports as `from a import b`
     (`graph.edge`); at most 10 rows;
   - a neighbour fingerprint: a 16 × 4 grid of dots, one per bucket of the repo's modules in path

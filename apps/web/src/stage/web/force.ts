@@ -141,9 +141,11 @@ export function forceLayout(input: LayoutInput, ticks = LAYOUT_TICKS): Float32Ar
   const order = pseudo
     .map((_, i) => i)
     .sort((p, q) => (pseudo[p] as number) - (pseudo[q] as number) || p - q);
-  // Symbols and tests: the members of containment links, which come after the drawn edges.
+  // Symbols and tests: the members of containment links, which come after the drawn edges, and
+  // every test, even one whose file has no module node (a test is never placed as a module).
   const inner = new Uint8Array(n);
   for (let i = drawn; i < input.links.length / 2; i++) inner[input.links[i * 2 + 1] as number] = 1;
+  for (let i = 0; i < n; i++) if (input.tests[i] === 1) inner[i] = 1;
   const innerCount = inner.reduce((sum, v) => sum + v, 0);
   const moduleCount = n - innerCount;
   let moduleRank = 0;

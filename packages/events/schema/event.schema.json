@@ -179,14 +179,14 @@
     },
     {
       "title": "graph.node",
-      "description": "A node of the dependency graph.",
+      "description": "A node of the dependency graph (modules and changed symbols, or the selected tests).",
       "type": "object",
       "properties": {
         "kind": {
           "const": "graph.node"
         },
         "stage": {
-          "const": "build"
+          "enum": ["build", "run"]
         },
         "pv": {
           "const": 1

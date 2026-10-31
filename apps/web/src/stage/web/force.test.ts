@@ -141,6 +141,19 @@ describe("forceLayout (B05: identical across reloads; a chord layout since B14)"
     expect(big).toHaveLength(stress.graph.nodeCount * 2);
     expect(big.every((v) => Number.isFinite(v) && Math.abs(v) <= 1)).toBe(true);
   });
+
+  it("places a test whose file has no module node inside the disc, never on the circle", () => {
+    const out = forceLayout({
+      ids: ["pkg.a", "pkg.a:f#0", "web/test/a.test.ts::a works"],
+      links: Int32Array.from([0, 1]), // containment: f in pkg.a; the test's file has no module
+      containment: 1,
+      tests: Uint8Array.from([0, 0, 1]),
+    });
+    expect(Math.hypot(out[0] as number, out[1] as number)).toBeCloseTo(1, 6); // the module
+    const radius = Math.hypot(out[4] as number, out[5] as number);
+    expect(radius).toBeGreaterThanOrEqual(NODE_RIM * NODE_RADII.test[0] - 1e-6);
+    expect(radius).toBeLessThanOrEqual(NODE_RIM * NODE_RADII.test[1] + 1e-6);
+  });
 });
 
 describe("LayoutService", () => {
