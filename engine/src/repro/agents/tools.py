@@ -3,8 +3,11 @@
 Four tools (research/04, recommendation A.2), each a ``ReproTool`` that reads only the run's
 evidence (``repro.agents.evidence``) and the two commits (``repro.agents.sources``):
 
-- ``list_evidence``: the citable evidence, one line each, what differs before what did not,
-  optionally only what is about a file, symbol or test;
+- ``list_evidence``: the citable evidence, one line each, the most decisive first
+  (``repro.agents.evidence.rank``), optionally only what is about a file, symbol or test, what
+  is about that target itself first; alike items whose outcome is the same on both sides (the
+  old cases of a parametrized test whose code changed, tests that passed on both sides) take
+  one line from ``COLLAPSE_AT`` on, which says how many more there are and how to list them;
 - ``get_evidence``: one item in full; the text a quote must come from;
 - ``read_snippet``: up to ``MAX_SNIPPET_LINES`` lines of a file on one side;
 - ``get_diff``: a file's diff from base to head, up to ``MAX_DIFF_LINES`` lines.
@@ -21,11 +24,22 @@ from collections.abc import Mapping
 from typing import Any, Final
 
 from repro.agents.backend import ReproTool
-from repro.agents.evidence import EvidenceView, findings_first
+from repro.agents.evidence import (
+    CODE_ONLY,
+    EvidenceView,
+    Item,
+    group_key,
+    most_decisive_first,
+    rank,
+)
 from repro.agents.sources import RepoSources, SourceError, checked_path
 from repro.agents.untrusted import block
 
 MAX_LISTED: Final = 60
+#: Alike items (``group_key``) whose outcome is the same on both sides, from this many on, are
+#: listed as one line. On a Lectris change, 31 old cases of two parametrized tests, each line
+#: alike, took most of a listing's ``MAX_ANSWER_CHARS``.
+COLLAPSE_AT: Final = 3
 MAX_SNIPPET_LINES: Final = 80
 MAX_LINE: Final = 240
 MAX_DIFF_LINES: Final = 160
@@ -122,6 +136,42 @@ def _fit(lines: list[str]) -> list[str]:
     return kept
 
 
+def _listed(
+    view: EvidenceView, items: list[Item], target: Mapping[str, str]
+) -> list[tuple[str, int]]:
+    """A listing's lines, each with how many items it stands for. Alike items (``rank`` and
+    ``group_key``) that say no outcome changed, ``COLLAPSE_AT`` or more of them, are one line
+    where the first of them is, unless they are about the target itself: listing their test
+    shows each."""
+
+    def collapsible(item: Item) -> bool:
+        return rank(item) >= CODE_ONLY and not (target and view.about(item, target))
+
+    groups: dict[tuple[int, tuple[str, str, str]], list[Item]] = {}
+    for item in items:
+        if collapsible(item):
+            groups.setdefault((rank(item), group_key(item)), []).append(item)
+    lines = []
+    for item in items:
+        group = groups.get((rank(item), group_key(item)), []) if collapsible(item) else []
+        if len(group) < COLLAPSE_AT:
+            lines.append((item.line(), 1))
+        elif item is group[0]:
+            first = item.targets[0] if item.targets else {}
+            by = next((key for key in ("symbol", "test", "file") if key in first), "file")
+            alike = (
+                "the same outcome on base and head, the test's code changed"
+                if rank(item) == CODE_ONLY
+                else "nothing changed"
+            )
+            more = (
+                f"  [and {len(group) - 1} more like it ({alike}): list_evidence with {by} "
+                f"{group_key(item)[2]} lists each]"
+            )
+            lines.append((item.line() + more, len(group)))
+    return lines
+
+
 class EvidenceTools:
     """The four tools over one run's evidence and commits."""
 
@@ -136,18 +186,29 @@ class EvidenceTools:
                 checked_path(target["file"])
             except SourceError as exc:
                 raise ToolInputError(str(exc)) from None
-        items = findings_first(self.view.relevant([target] if target else []))
+        items = most_decisive_first(self.view.relevant([target] if target else []))
         about = f" about {', '.join(f'{k} {v}' for k, v in target.items())}" if target else ""
         if not items:
             return f"no evidence{about}"
-        shown = _fit([item.line() for item in items[:MAX_LISTED]])
+        if target:  # what is about the target itself first, each part most decisive first
+            items.sort(key=lambda item: not self.view.about(item, target))
+        lines = _listed(self.view, items, target)[:MAX_LISTED]
+        shown = _fit([line for line, _ in lines])
+        left = len(items) - sum(count for _, count in lines[: len(shown)])
         more = (
-            f"\n...and {len(items) - len(shown)} more; a file, symbol or test lists only what "
-            "is about it"
-            if len(items) > len(shown)
+            f"\n...and {left} more; a file, symbol or test lists only what is about it, what "
+            "is about it itself first"
+            if left
             else ""
         )
-        head = f"{len(items)} evidence items{about} (id, type, stability, origin, summary):"
+        order = (
+            "what is about it itself first, each part the most decisive first"
+            if target
+            else "the most decisive first"
+        )
+        head = (
+            f"{len(items)} evidence items{about} ({order}; id, type, stability, origin, summary):"
+        )
         listing = "\n".join(shown) + more
         return f"{head}\n{block('evidence-list', listing)}"
 

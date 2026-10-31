@@ -724,7 +724,15 @@ the finding, in content order, and without what varies between runs of the same 
 the snapshots the target's tests ran in, by paths checked before git sees them, with
 `--no-ext-diff --no-textconv`. The target's text sits in `<untrusted_content kind=…>` blocks
 whose delimiters it cannot write, made portable (LF, `~` for the home directory, `/` in
-pytest's file locations).
+pytest's file locations). An answer holds at most 4,000 characters, so `list_evidence` puts
+the most decisive evidence first (`evidence.rank`): failing tests and other problems on their
+own, then behaviour, probe and API differences, then tests whose outcome changed (fixed, new,
+removed, flaky), then any other difference, then `modified` tests that passed on every run
+(their code changed, their outcome did not), then what says nothing changed. Given a target,
+what is about that target itself (its symbol, its test or a case of it, its file) comes first.
+Three or more alike items whose outcome did not change (the cases of one parametrized test)
+take one line: the first of them, how many more there are, and the test whose listing shows
+each. The order is a function of the evidence alone, so the same evidence lists the same.
 
 ### 10.3 Evidence-constrained verdicts
 - The reviewer output schema is generated **per claim**. `cited_evidence` is an array with
@@ -743,10 +751,11 @@ pytest's file locations).
   about the claim's files rendered in full (at most 10 items; G03's tools offered only when
   more exist), and those files' diffs. Its schema's `cited_evidence` has `minItems: 1` and an
   enum of that evidence's IDs; Groq's strict mode accepts it (measured). A claim with more
-  than 10 items is shown what differs first: each group of alike findings (same type, kind of
-  change and first target) once in full with its other IDs, and a count of what says nothing
-  changed (tests that passed on both sides, unchanged timings), which `list_evidence` lists
-  last. Past 40 IDs the schema takes an ID as a string instead of an enum. On a real
+  than 10 items is shown what differs first, the most decisive first (as `list_evidence`
+  orders it, §10.2): each group of alike findings (same type, kind of change and first target,
+  a parametrized test's cases being one target) once in full with its other IDs, and a count
+  of what says nothing changed (tests that passed on both sides, unchanged timings), which
+  `list_evidence` lists last. Past 40 IDs the schema takes an ID as a string instead of an enum. On a real
   repository the enum was most of each request (`docs/paper/LOG.md`), and the
   check refuses an ID that is not the claim's evidence either way. The answer is checked
   for shape, citations (existing, about the claim), quotes (exact substrings of the evidence's

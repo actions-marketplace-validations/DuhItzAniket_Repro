@@ -101,7 +101,7 @@ Details: [architecture](docs/ARCHITECTURE.md) and [threat model](docs/THREAT_MOD
 
 ## Status
 
-**v1.6.0.** Stages A to I and K are done. The evaluation study (Stage J) has its harness,
+**v1.6.1.** Stages A to I and K are done. The evaluation study (Stage J) has its harness,
 protocol and draft pre-registration; it has not run yet. Progress is tracked in the
 [roadmap](docs/ROADMAP.md) and every change in the [changelog](CHANGELOG.md).
 

@@ -21,7 +21,14 @@ from collections.abc import Mapping, Sequence
 from typing import Any, Final
 
 from repro.agents.backend import AgentRequest, Budget, ReproTool
-from repro.agents.evidence import EvidenceView, Item, group_key, unchanged
+from repro.agents.evidence import (
+    EvidenceView,
+    Item,
+    group_key,
+    most_decisive_first,
+    rank,
+    unchanged,
+)
 from repro.agents.prompts import Prompt
 from repro.agents.sources import RepoSources, SourceError
 from repro.agents.untrusted import block
@@ -97,16 +104,17 @@ def _others(claim: Mapping[str, Any], claims: Sequence[Mapping[str, Any]]) -> st
 
 def _many(items: Sequence[Item], *, reverse: bool = False) -> str:
     """The evidence of a claim with more than ``MAX_INLINE_ITEMS`` items. What differs comes
-    first: each group of alike findings (``group_key``) once in full, with its other IDs, up to
+    first, the most decisive first (``rank``): each group of alike findings (``group_key``: the
+    cases of a parametrized test are one target) once in full, with its other IDs, up to
     ``MAX_INLINE_ITEMS`` groups. The tests that passed on both sides are counted, not shown;
     the tools list them. ``reverse``: the groups in the opposite order (G08)."""
-    groups: dict[tuple[str, str, str], list[Item]] = {}
+    groups: dict[tuple[int, tuple[str, str, str]], list[Item]] = {}
     same = 0
-    for item in items:
+    for item in most_decisive_first(items):
         if unchanged(item):
             same += 1
         else:
-            groups.setdefault(group_key(item), []).append(item)
+            groups.setdefault((rank(item), group_key(item)), []).append(item)
     shown = list(groups.values())[:MAX_INLINE_ITEMS]
     parts = []
     for group in shown[::-1] if reverse else shown:

@@ -1,6 +1,6 @@
 {
   "name": "@repro/synth",
-  "version": "1.6.0",
+  "version": "1.6.1",
   "private": true,
   "description": "Deterministic synthetic Repro runs: the cockpit's reference and stress event logs.",
   "license": "Apache-2.0",

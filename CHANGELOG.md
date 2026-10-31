@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-10-31
+
+Two fixes found on a real project: classes and packages the tests run are covered (D05), and a
+reviewer's evidence listing shows the most decisive evidence first (G03). Release record:
+`docs/phases/release-1.6.1.md`.
+
 ### Fixed
 - Classes and packages the tests do run are no longer `no_covering_test` items. Found on
   Lectris, where Repro's Action listed seven small `@dataclass(frozen=True, slots=True)`
@@ -25,6 +31,27 @@ All notable changes to this project are documented here. The format follows
   is now treated as module-level code, selected and covered by imports. A decorated or methodful
   class must still run some of its code. New fixture `generated`, with a dataclass nothing
   constructs that stays a gap. [D05]
+- A reviewer's evidence listing shows the most decisive evidence first. Found on Lectris PR
+  #11, a correct change that adds four cases to one parametrized test and six to another. Its
+  31 old cases were `modified` (the test's code changed), passing on base and on head. Ordered
+  by type and target, they filled the 4,000 characters of `list_evidence`'s answer, and neither
+  the new cases nor the probe that showed `O.5` read as `0.5` was in it. The reviewers of the
+  two claims that say so answered "unverifiable": the card was UNVERIFIABLE.
+  - `list_evidence` now orders by `evidence.rank`: failing tests and other problems on their
+    own, then behaviour, probe and API differences, then outcome changes (fixed, new, removed,
+    flaky), then other differences, then `modified` tests that passed on every run, then what
+    says nothing changed. Given a file, symbol or test, what is about that target itself comes
+    first (a test's own cases, also when the target names one of them).
+  - Three or more alike items whose outcome did not change take one line: the first of them,
+    how many more there are, and the test whose listing shows each.
+  - A reviewer given more than ten items sees its groups in the same order, and a parametrized
+    test's cases are one group.
+
+  Run again live, once, the two reviewers answered "supported" in one turn. The card stayed
+  UNVERIFIABLE: QA judged those claims inconsistent with a negative case (`docs/paper/LOG.md`).
+  The order depends on the evidence alone, so a listing stays the same for the same evidence.
+  No committed cassette records a `list_evidence` answer or a grouped prompt, so none changed.
+  Claude and OpenAI-compatible reviewers call the same tools. [G03]
 
 ## [1.6.0] - 2026-10-31
 
@@ -1050,7 +1077,8 @@ Stage A — Foundation. Gate record: `docs/phases/A-gate.md`.
 - ADRs 0003 (envelope versioning fields), 0004 (Docker as the default sandbox), 0007 (agent
   runtime) and 0011 (motion safety) accepted. [A02]
 
-[Unreleased]: https://github.com/DuhItzAniket/Repro/compare/v1.6.0...HEAD
+[Unreleased]: https://github.com/DuhItzAniket/Repro/compare/v1.6.1...HEAD
+[1.6.1]: https://github.com/DuhItzAniket/Repro/releases/tag/v1.6.1
 [1.6.0]: https://github.com/DuhItzAniket/Repro/releases/tag/v1.6.0
 [1.5.0]: https://github.com/DuhItzAniket/Repro/releases/tag/v1.5.0
 [1.4.0]: https://github.com/DuhItzAniket/Repro/releases/tag/v1.4.0

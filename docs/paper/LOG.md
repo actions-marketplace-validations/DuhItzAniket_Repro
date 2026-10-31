@@ -839,3 +839,46 @@ entry. If something turns out wrong, add a correcting entry.
     Coverage-gap numbers from earlier runs should be recomputed, or the inflation stated;
   - the boundary stays explicit: a decorated class, or one with methods, must run some of its
     code; a pydantic model's constructor is pydantic's code, invisible to the map.
+
+## 2026-10-31 · fix · What a reviewer sees first
+- **Setup:** `repro run --pr https://github.com/DuhItzAniket/Lectris/pull/11`, Docker (L3),
+  `claude-haiku-5-5` for every role, live, one run before the fix and one after, the same
+  commits (base `fea2e33`, head `2bd7501`). The change is correct: `confusables.in_numbers`
+  reads `O.5` as `0.5`, and two parametrized tests gain four positive and six negative cases.
+- **Before** (`run_01M697BN7YCEWA3Z0PMAJH415S`): UNVERIFIABLE. 307 evidence items. The
+  differences were 31 old cases `modified` (the test's code changed) and passing on both sides,
+  10 new cases, 2 `test_modified` and 1 probe difference (`in_numbers(text='O.5')` gives
+  `0.5` on head). The reviewers of C1 and C2 (the fix itself) answered "unverifiable", one
+  writing that none of the evidence it was shown recorded a passing positive case.
+- **The cause, reproduced from that log:** evidence was listed by type, then target. A
+  reviewer given more than ten items was shown ten groups of findings, a group being one
+  parametrized case, and all ten were cases of the test whose name sorts first. A
+  `list_evidence` answer (4,000 characters) held 20 lines. Unfiltered, or about the source
+  file, the test file or either test, it held the same 20: that test's cases, old and new.
+  The new positive cases and the probe were in none of them.
+- **The fix** (`agents/evidence.py`, `agents/tools.py`, `agents/reviewer.py`): the most
+  decisive evidence first. Problems on their own, then behaviour, probe and API differences,
+  then outcome changes, then other differences, then `modified` tests that passed on every
+  run, then what says nothing changed. A parametrized test's cases are one group, and three or
+  more alike items whose outcome did not change take one line. Replayed from the before log,
+  the first listing and the grouped prompt now begin with the probe, then the new cases.
+- **After** (`run_01M69962EZAXCTYAYYXGV44DQ2`): still UNVERIFIABLE, for another reason.
+  - The reader found 6 claims, not 8 (it is not deterministic, and the PR's description had
+    been edited since). C1 and C2 have the same text as before.
+  - The reviewers of C1 and C2 answered "supported" in one turn each, with no tool call: the
+    grouped prompt showed them the probe first. C2's also cited a new positive case.
+  - QA then found C1, C2 and C4 inconsistent: C4's evidence includes the negative case
+    `O.5km`, passing with the input left unchanged, and QA read that as contradicting "an O
+    before a decimal point is read as a leading zero". So C1, C2 and C4 became unverifiable.
+    The change keeps `O.5km` unchanged by design (a unit follows the number), so this reads
+    as a false inconsistency. It is a separate matter from the listing, and not fixed here.
+  - The run selected 1,250 tests where the before run selected 228, and had 1,403 evidence
+    items. The differences were the same 44. Which Repro commit the before run used was not
+    recorded, so the difference in selection is not attributed here.
+  - 9 model calls, $0.018 by the CLI's estimate (before: 11 calls, $0.031).
+- **One run each:** a model's verdict varies between runs, so this shows the two reviewers'
+  answers changed once, not a rate.
+- **For the paper:** what a judge is shown first is part of the evidence it judges. With a
+  capped context, an order by type and name can hide the decisive evidence behind many alike,
+  uninformative items, and the judge then reports, correctly, that it saw no support. An
+  evaluation should report how the evidence given to a judge was ordered and cut.

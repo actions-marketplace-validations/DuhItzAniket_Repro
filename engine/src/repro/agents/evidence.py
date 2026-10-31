@@ -20,6 +20,12 @@ every run of the same change:
 Everything that can carry the target's own text (summaries, messages, values, details) is
 inside an ``untrusted_content`` block; the evidence ID, type, stability, origin and targets,
 which are the engine's, are outside it.
+
+**A listing shows the most decisive evidence first** (``rank``): it is cut at a few thousand
+characters, and a reviewer judges by what it saw. A change that adds cases to a parametrized
+test makes every old case of it ``modified`` (its code changed), with the same outcome on both
+sides; on a Lectris change, 31 such cases, ordered by target, filled the first listing and hid
+the new cases and the probe that showed the fix, and two reviewers answered "unverifiable".
 """
 
 import json
@@ -28,6 +34,7 @@ from dataclasses import dataclass
 from typing import Any, Final
 
 from repro.agents.untrusted import block, portable
+from repro.runner.outcomes import passes
 
 #: Evidence agents are never shown: the engine's own bookkeeping.
 HIDDEN: Final = frozenset({"environment", "policy"})
@@ -116,19 +123,81 @@ def unchanged(item: "Item") -> bool:
     return item.type == "perf_diff" and item.data.get("verdict") == "no_change"
 
 
-def findings_first(items: Iterable["Item"]) -> list["Item"]:
-    """``items`` with what differs before what did not, each part in its own order. On a real
-    repository the tests that passed on both sides are most of the evidence (272 of 304 items
-    on an itsdangerous change), and they come first by type."""
-    listed = list(items)
-    return [i for i in listed if not unchanged(i)] + [i for i in listed if unchanged(i)]
+#: An item's place in a listing, the most decisive first (``rank``).
+FAILING: Final = 0  # a problem on its own: a test failing on head, a failed invariant, ...
+BEHAVIOUR: Final = 1  # what the code does or offers: behaviour, probe and API differences
+OUTCOME: Final = 2  # a test outcome that differs: fixed, new, removed or flaky
+OTHER: Final = 3  # any other difference: an edited test, a dependency, a pre-existing failure
+CODE_ONLY: Final = 4  # a test whose code changed and whose outcome did not
+UNCHANGED: Final = 5  # nothing changed (``unchanged``)
+#: The ``test_change`` kind that is not a problem on its own (``diff.tests`` status ``warn``).
+_EDITED: Final = "test_modified"
+
+
+def _passed_throughout(data: Mapping[str, Any]) -> bool:
+    """Whether a test passed on base, on base again (if it ran) and on head."""
+    ran = [data.get(run) for run in ("base_outcome", "base_again_outcome", "head_outcome")]
+    return (
+        ran[0] is not None
+        and ran[2] is not None
+        and all(passes(outcome) for outcome in ran if outcome is not None)
+    )
+
+
+def rank(item: "Item") -> int:
+    """How decisive ``item`` is, as its place in a listing: ``FAILING`` first, ``UNCHANGED``
+    last. A ``modified`` test (its code changed, so the engine does not compare its outcomes)
+    that passed on every run is ``CODE_ONLY``: an old case of a parametrized test that gained
+    cases says little about the change."""
+    data = item.data
+    if unchanged(item):
+        return UNCHANGED
+    if item.type == "test_outcome":
+        if item.origin == "pre-existing":
+            return OTHER
+        head = data.get("head_outcome")
+        if head is not None and not passes(head):
+            return FAILING
+        modified = data.get("class") == "modified"
+        return CODE_ONLY if modified and _passed_throughout(data) else OUTCOME
+    if item.type in ("behaviour_diff", "probe_diff", "api_diff"):
+        return BEHAVIOUR
+    flagged = (
+        (item.type == "test_change" and data.get("change") != _EDITED)
+        or (item.type == "invariant" and data.get("result") == "fail")
+        or (item.type == "perf_diff" and data.get("verdict") == "regression")
+        or item.type == "policy_change"
+    )
+    return FAILING if flagged else OTHER
+
+
+def most_decisive_first(items: Iterable["Item"]) -> list["Item"]:
+    """``items`` by ``rank``, each rank in the order given. On a real repository the tests that
+    passed on both sides are most of the evidence (272 of 304 items on an itsdangerous change),
+    and they come last."""
+    return sorted(items, key=rank)
+
+
+def unparametrized(test: str) -> str:
+    """A test's ID without its parameters: the test a parametrized case (pytest's
+    ``path::name[id]``) is a case of. Another ID, such as a JavaScript test named with
+    brackets, is left as it is."""
+    start = test.find("::")
+    bracket = test.find("[", start + 2) if start >= 0 else -1
+    if bracket < 0 or not test.endswith("]"):
+        return test
+    name = test[:bracket].rpartition("::")[2]
+    return test[:bracket] if name.isidentifier() else test
 
 
 def group_key(item: "Item") -> tuple[str, str, str]:
-    """Items alike enough to show as one: the same type, kind of change and first target."""
-    change = str(item.data.get("change") or item.data.get("class") or "")
+    """Items alike enough to show as one: the same type, kind of change and first target, the
+    cases of a parametrized test being one target."""
+    data = item.data
+    change = str(data.get("change") or data.get("class") or data.get("verdict") or "")
     target = item.targets[0] if item.targets else {}
-    return item.type, change, target.get("symbol") or target.get("test") or target.get("file", "")
+    test = unparametrized(target["test"]) if "test" in target else ""
+    return item.type, change, target.get("symbol") or test or target.get("file", "")
 
 
 @dataclass(frozen=True, slots=True)
@@ -244,6 +313,24 @@ class EvidenceView:
             if any(own.get(key) and own.get(key) == target.get(key) for key in ("symbol", "test")):
                 return True
             if wanted & self._files_of(own):
+                return True
+        return False
+
+    @staticmethod
+    def about(item: Item, target: Mapping[str, str]) -> bool:
+        """Whether ``item`` is about ``target`` itself, not through a file in common: the same
+        symbol, the same test or a case of it, or a target in the same file."""
+        for own in item.targets:
+            files = (own.get("file"), own.get("test", "").split("::", 1)[0])
+            if (
+                ("symbol" in target and own.get("symbol") == target["symbol"])
+                or (
+                    "test" in target
+                    and "test" in own
+                    and unparametrized(own["test"]) == unparametrized(target["test"])
+                )
+                or ("file" in target and target["file"] in files)
+            ):
                 return True
         return False
 
