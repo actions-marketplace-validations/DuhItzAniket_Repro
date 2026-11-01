@@ -237,3 +237,88 @@ def test_a_cached_map_reports_what_the_run_that_made_it_did(
     assert "collection_error:" in missing_of(warm)
     broken = [i["missing"]["detail"] for i in warm.problems()]
     assert any(d.startswith("base: tests/test_broken.py could not be collected") for d in broken)
+
+
+_READ = '''def read(text):
+    """An O before digits is a zero."""
+    if text.startswith("O") and text[1:].isdigit():
+        return "0" + text[1:]
+    return text
+'''
+_READ_TESTS = """import pytest
+
+from conf.text import read
+
+
+@pytest.mark.parametrize(("text", "expected"), [("O1", "01"), ("ab", "ab")])
+def test_read(text, expected):
+    assert read(text) == expected
+
+
+@pytest.mark.parametrize("n", [1, pytest.param(2, id="two")])
+def test_values(n):
+    assert n > 0
+"""
+#: Lectris PR #11's shape: a fix, and cases added to the parametrized test that shows it. A
+#: second parametrized test gains a case and changes one under the same ID.
+CASES = RepoSpec(
+    name="cases",
+    description="Cases added to parametrized tests: the old ones are kept, one is changed.",
+    base={
+        "pyproject.toml": '[project]\nname = "conf-fixture"\nversion = "0.1.0"\n',
+        "conf/__init__.py": "",
+        "conf/text.py": _READ,
+        "tests/test_text.py": _READ_TESTS,
+    },
+    heads={
+        "fix/leading-zero": {
+            "conf/text.py": _READ.replace(
+                "text[1:].isdigit():", '(text[1:].isdigit() or text[1:2] == "."):'
+            ),
+            "tests/test_text.py": _READ_TESTS.replace(
+                '("ab", "ab")]', '("ab", "ab"), ("O.5", "0.5")]'
+            ).replace('pytest.param(2, id="two")]', 'pytest.param(4, id="two"), 5]'),
+        }
+    },
+)
+
+
+def test_cases_added_to_a_parametrized_test_leave_the_old_ones_comparable(
+    tmp_path: Path, provisioner: HostProvisioner
+) -> None:
+    """An old case whose own parameters did not change is compared (P2P here), not
+    ``modified``; one whose parameters changed under the same ID is ``modified``. The same from
+    the cached map, which keeps each case's digest."""
+    cache = selection.MapCache(tmp_path / "maps")
+    results = [
+        reproduce_spec(
+            CASES, "fix/leading-zero", tmp_path / name, provisioner, cache=cache, cache_key="k"
+        )
+        for name in ("cold", "warm")
+    ]
+    assert [r.map_cached for r in results] == [False, True]
+    read, values = "tests/test_text.py::test_read", "tests/test_text.py::test_values"
+    for result in results:
+        assert evidence_of(result) == [
+            f"test_change:test_modified:{read}",
+            f"test_change:test_modified:{values}",
+            f"test_outcome:P2P:{read}[O1-01]",
+            f"test_outcome:P2P:{read}[ab-ab]",
+            f"test_outcome:P2P:{values}[1]",
+            f"test_outcome:modified:{values}[two]",
+            f"test_outcome:new:{read}[O.5-0.5]",
+            f"test_outcome:new:{values}[5]",
+        ]
+        assert result.kept_cases == {f"{read}[O1-01]", f"{read}[ab-ab]", f"{values}[1]"}
+        assert result.modified() == {f"{values}[two]"}
+        assert {c.test: c.detail for c in result.test_changes} == {
+            read: "only its parametrize cases changed: 1 added, 0 removed, 2 kept their parameters",
+            values: (
+                "only its parametrize cases changed: 1 added, 0 removed, 1 kept their parameters, "
+                "1 changed theirs"
+            ),
+        }
+        on_head = next(r for r in result.runs if r.label == "base tests on head")
+        assert on_head.tests == (f"{values}[two]",)  # a kept case is not run a second time
+        selected = {s.test: s.reasons for s in result.selected}
+        assert "modified_test" in selected[f"{read}[O1-01]"]  # its test's code did change

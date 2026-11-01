@@ -144,6 +144,9 @@ class PytestRun:
     #: Each test collected, and where its function is (None: not a Python function, or outside
     #: the snapshot).
     collected: dict[str, Place | None] = field(default_factory=dict)
+    #: Each parametrized case collected whose parameters are plain values: a digest of them
+    #: (the plugin's ``_case``), to tell an unchanged case from one whose parameters changed.
+    cases: dict[str, str] = field(default_factory=dict)
     #: With the map on: the places each test ran, from its setup to its teardown.
     maps: dict[str, frozenset[Place]] = field(default_factory=dict)
     #: Why the map could not be made, if it could not.
@@ -316,6 +319,7 @@ class _Reading:
         self.errors: list[CollectError] = []
         self.session: dict[str, Any] | None = None
         self.collected: dict[str, Place | None] = {}
+        self.cases: dict[str, str] = {}
         self.maps: dict[str, frozenset[Place]] = {}
         self.unavailable: str | None = None
         self.calls: list[TraceCall] = []
@@ -334,8 +338,12 @@ class _Reading:
         self.session = _session(record)
 
     def collected_record(self, record: dict[str, Any]) -> None:
-        test = record["test"]
-        self.collected[_nodeid(record)] = _place(test) if test is not None else None
+        test, case = record["test"], record.get("case")
+        place = _place(test) if test is not None else None
+        nodeid = _nodeid(record)
+        if case is not None:
+            self.cases[nodeid] = _hex(case)
+        self.collected[nodeid] = place
 
     def map_record(self, record: dict[str, Any]) -> None:
         self.maps[_nodeid(record)] = _functions(record["functions"])
@@ -417,6 +425,7 @@ def read_results(
         malformed,
         tuple(notes),
         collected=reading.collected,
+        cases=reading.cases,
         maps=reading.maps,
         map_unavailable=reading.unavailable,
         calls=tuple(reading.calls),

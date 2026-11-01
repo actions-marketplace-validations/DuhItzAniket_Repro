@@ -28,6 +28,12 @@ repro doctor
 repro run --repo <path> --base <ref> --head <ref> --open
 ```
 
+AI reviewers are optional and off by default. `REPRO_AGENTS` turns them on with Claude
+(`claude`), Groq (`groq`) or any OpenAI-compatible endpoint (`openai`), and `REPRO_AGENT_MODEL`
+picks the model. Each verdict must cite the evidence Repro produced, and the card's status comes
+from deterministic rules
+([settings](https://github.com/DuhItzAniket/Repro/blob/main/engine/README.md#settings)).
+
 The `e2b` extra (`repro-engine[e2b]`) adds the SDK for a self-hosted E2B sandbox, which runs each
 side in a microVM (L5).
 

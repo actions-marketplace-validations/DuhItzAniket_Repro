@@ -93,6 +93,7 @@ def test_no_session_record_is_incomplete() -> None:
         {"kind": "test", "outcome": "passed"},
         {"kind": "test", "nodeid": "t.py::b", "outcome": "passed", "duration_s": "slow"},
         {"kind": "collect_error", "nodeid": "u.py"},
+        {"kind": "collected", "nodeid": "t.py::a[1]", "test": None, "case": "not a digest"},
         {"kind": "session", "exitstatus": "0", "collected": 1},
         {"kind": "session", "exitstatus": 0},
     ],
@@ -129,3 +130,16 @@ def test_records_past_the_limit_are_not_read(monkeypatch: pytest.MonkeyPatch) ->
 def test_the_last_record_of_a_rerun_test_counts() -> None:
     failed = {**TEST, "outcome": "failed"}
     assert read_results(lines(failed, TEST, SESSION)).outcomes() == {"t.py::a": "passed"}
+
+
+def test_a_case_digest_is_read_with_its_test() -> None:
+    """The plugin's digest of a parametrized case's own parameters (testdiff's kept cases)."""
+    collected = [
+        {"kind": "collected", "nodeid": "t.py::p[1]", "test": ["t.py", "p", 3], "case": "a" * 32},
+        {"kind": "collected", "nodeid": "t.py::p[x]", "test": ["t.py", "p", 3]},
+        {"kind": "collected", "nodeid": "t.py::a", "test": ["t.py", "a", 1]},
+    ]
+    run = read_results(lines(*collected, TEST, SESSION))
+    assert run.malformed == 0
+    assert run.cases == {"t.py::p[1]": "a" * 32}
+    assert set(run.collected) == {"t.py::p[1]", "t.py::p[x]", "t.py::a"}

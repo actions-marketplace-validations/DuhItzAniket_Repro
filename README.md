@@ -85,6 +85,28 @@ PR ─► READ claims ─► BUILD isolated snapshots + blast radius ─► RUN 
   are pure projections of it. The card exports as Markdown, JSON, SARIF, JUnit XML and an
   in-toto statement.
 
+## AI reviewers (optional)
+
+They are off by default. Without them Repro still runs and diffs everything, and every
+difference no claim explains flags the change. Turned on, they read the PR's description into
+claims and judge each claim against the evidence, through read-only tools. Pick a backend with
+`REPRO_AGENTS`:
+
+| `REPRO_AGENTS` | Models | Key |
+|---|---|---|
+| `claude` | Claude. By default Haiku 5.5 reads the claims, Sonnet 5.5 writes probes and Opus 5.5 reviews | `ANTHROPIC_API_KEY` |
+| `groq` | `openai/gpt-oss-120b` on Groq | `GROQ_API_KEY` |
+| `openai` | Any OpenAI-compatible endpoint (`REPRO_AGENT_BASE_URL`), hosted or a local server | the variable `REPRO_AGENT_API_KEY_ENV` names, or none |
+
+```bash
+REPRO_AGENTS=claude REPRO_AGENT_MODEL=claude-haiku-5-5 repro run --pr https://github.com/<owner>/<repo>/pull/<n>
+```
+
+`REPRO_AGENT_MODEL` puts every role on one model. `REPRO_AGENT_BUDGET_USD` caps what a run's
+model calls may cost together (default 2 US dollars). The model must support tool calling.
+Whatever the model, a verdict that cites no evidence is rejected, and the status comes from
+deterministic rules. Every setting: [the engine's settings](engine/README.md#settings).
+
 ## Isolation
 
 Target repositories are untrusted code. They run only from snapshots without `.git`, never in
@@ -101,7 +123,7 @@ Details: [architecture](docs/ARCHITECTURE.md) and [threat model](docs/THREAT_MOD
 
 ## Status
 
-**v1.6.1.** Stages A to I and K are done. The evaluation study (Stage J) has its harness,
+**v1.6.2.** Stages A to I and K are done. The evaluation study (Stage J) has its harness,
 protocol and draft pre-registration; it has not run yet. Progress is tracked in the
 [roadmap](docs/ROADMAP.md) and every change in the [changelog](CHANGELOG.md).
 

@@ -103,6 +103,10 @@ def check_suite(run: runner.TestRun, python: str) -> None:
     assert "arithmetic is off" in (tests[f"{OUTCOMES}test_fails"].message or "")
     assert tests[f"{OUTCOMES}test_passes"].phase is None
     assert tests[f"{OUTCOMES}test_passes"].message is None
+    # Each parametrized case's digest of its own parameters, and only theirs.
+    cases = results.cases
+    assert set(cases) == {f"{OUTCOMES}test_parametrized[1]", f"{OUTCOMES}test_parametrized[2]"}
+    assert cases[f"{OUTCOMES}test_parametrized[1]"] != cases[f"{OUTCOMES}test_parametrized[2]"]
     assert [error.nodeid for error in results.collect_errors] == ["tests/test_broken_import.py"]
     assert "a_module_that_does_not_exist" in results.collect_errors[0].message
     session = results.session
@@ -247,3 +251,65 @@ def test_tests_too_many_for_a_command_line_go_in_a_file(
         assert run.results.outcomes() == {test: EXPECTED[test] for test in order}
         files = [d.detail for d in run.execution.detections.items if d.kind == "file"]
         assert files == []  # the list is read from where Repro wrote it
+
+
+#: A parametrized test as base has it, and as head has it with a case added and one changed.
+#: pytest names a case whose parameters are not scalars by its index (``given2-expected2``),
+#: so the new case comes after those: before them, it would rename them.
+CASES_BASE = """import pytest
+
+
+class Opaque:
+    pass
+
+
+@pytest.mark.parametrize(
+    ("given", "expected"),
+    [
+        ("1O", 10),
+        (2.5, None),
+        ((1, "a"), {"k": {3, 1}}),
+        (ValueError, b"x"),
+        pytest.param("O", 0, marks=pytest.mark.xfail(reason="later"), id="marked"),
+        pytest.param(Opaque(), 1, id="opaque"),
+        pytest.param("same", 1, id="changed"),
+    ],
+)
+def test_cases(given, expected):
+    pass
+"""
+CASES_HEAD = (
+    CASES_BASE.replace('(ValueError, b"x"),\n', '(ValueError, b"x"),\n        ("O1", 1),\n')
+    .replace('pytest.param("same", 1', 'pytest.param("same", 2')
+    .replace('{"k": {3, 1}}', '{"k": {1, 3}}')
+)
+#: Only a case's mark changed.
+CASES_MARK = CASES_BASE.replace('reason="later"', 'reason="soon"')
+
+
+def test_a_case_digest_is_of_its_own_parameters(side: Side) -> None:
+    """A case keeps its digest when other cases are added, and changes it when its own
+    parameters or marks change; a value that is not plain has none."""
+    path = side.snapshot / "tests" / "test_zz_cases.py"
+    digests = []
+    try:
+        for source in (CASES_BASE, CASES_HEAD, CASES_MARK):
+            path.write_text(source, encoding="utf-8")
+            run = side.run("tests/test_zz_cases.py")
+            assert run.results.complete, run.execution.stdout.decode(errors="replace")
+            digests.append(run.results.cases)
+    finally:
+        path.unlink()
+    base, head, mark = digests
+    name = "tests/test_zz_cases.py::test_cases"
+    kept = [
+        f"{name}[{i}]" for i in ("1O-10", "2.5-None", "given2-expected2", "ValueError-x", "marked")
+    ]
+    assert sorted(set(base)) == sorted([*kept, f"{name}[changed]"])
+    assert len(set(base.values())) == len(base)
+    assert {test: head[test] for test in kept} == {test: base[test] for test in kept}
+    assert head[f"{name}[changed]"] != base[f"{name}[changed]"]
+    assert f"{name}[O1-1]" in head
+    assert f"{name}[opaque]" not in head
+    assert mark[f"{name}[marked]"] != base[f"{name}[marked]"]
+    assert mark[f"{name}[1O-10]"] == base[f"{name}[1O-10]"]

@@ -9,7 +9,9 @@ the reverse order) and H (head):
 
 - only on head: ``new``; only on base: ``removed``;
 - A and A2 disagree: ``flaky`` (its outcome depends on order or hashing, not on the change);
-- its own code changed: ``modified`` (base and head outcomes are of different tests);
+- its own code changed: ``modified`` (base and head outcomes are of different tests). A case
+  of a parametrized test whose own parameters are the same on both sides, the test's code
+  differing only in its other cases, is not (``repro.runner.testdiff.kept_cases``);
 - otherwise ``P2P``, ``F2F``, or a flip, ``F2P`` / ``P2F``. A flip is run again *k* times on
   each side; unless every rerun repeats it, it is ``flaky``.
 

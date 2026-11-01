@@ -99,9 +99,34 @@ commit, the event log's digest and the evidence the card cites
 
 ## Agents
 To have the pull request's claims judged, set `agents` and give the job the backend's key from a
-secret, for example `env: ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}`. A workflow
-triggered from a fork is given no secret but `GITHUB_TOKEN` [GitHub docs, "Using secrets in
-GitHub Actions", checked 2026-10-17], so a fork's pull request runs without agents.
+secret. The other settings are the job's environment, as for `repro run`
+([the settings](../../engine/README.md#settings)). Claude, with every role on one model:
+
+```yaml
+      - uses: DuhItzAniket/Repro@<ref>
+        with:
+          agents: ${{ secrets.ANTHROPIC_API_KEY != '' && 'claude' || 'off' }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          REPRO_AGENT_MODEL: claude-haiku-5-5
+```
+
+Any OpenAI-compatible endpoint:
+
+```yaml
+      - uses: DuhItzAniket/Repro@<ref>
+        with:
+          agents: openai
+        env:
+          REPRO_AGENT_BASE_URL: https://api.openai.com/v1
+          REPRO_AGENT_MODEL: <model>
+          REPRO_AGENT_API_KEY_ENV: OPENAI_API_KEY
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+```
+
+The first example turns the agents off when the secret is not set, so the job still runs. A
+workflow triggered from a fork is given no secret but `GITHUB_TOKEN` [GitHub docs, "Using
+secrets in GitHub Actions", checked 2026-10-17], so a fork's pull request runs without agents.
 
 ## Caching
 Repro's mirror of the repository and its test maps are cached between runs, keyed by the pull

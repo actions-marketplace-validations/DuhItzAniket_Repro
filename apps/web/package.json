@@ -1,6 +1,6 @@
 {
   "name": "@repro/web",
-  "version": "1.6.1",
+  "version": "1.6.2",
   "private": true,
   "description": "Repro cockpit: a live, replayable projection of the engine's event stream.",
   "license": "Apache-2.0",

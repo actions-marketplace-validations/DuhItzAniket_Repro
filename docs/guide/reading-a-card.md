@@ -117,14 +117,18 @@ Every difference the run found between base and head, one row each.
   - `new` and `removed` tests;
   - `modified`: the test's own code changed, so each side ran its own version. Whether base's
     version still passes against head's code is a separate check, `diff.tests`'
-    `base_test_fails_on_head`, so a test can read "passed on both" here and fail there;
+    `base_test_fails_on_head`, so a test can read "passed on both" here and fail there. A
+    case of a parametrized test is `modified` only when its own parameters changed (or could
+    not be compared), or the test's code changed outside its `parametrize` cases. A case kept
+    as it was while other cases were added or removed is compared like any other test;
   - `flaky`: base's two runs or the reruns disagree.
 - `diff.tests`: how the tests themselves changed:
   - a test removed;
   - a skip or an expected failure added;
   - an assertion removed or weakened;
   - `pytest.raises` widened;
-  - `test_modified`: a test's own code changed;
+  - `test_modified`: a test's own code changed. When only its `parametrize` cases changed, the
+    detail says so and counts the cases added, removed, kept and changed;
   - `base_test_fails_on_head`: the base version of a modified test fails against head's code.
 - `diff.behaviour`: a changed function, called with the same input by the same test, behaved
   differently. The kinds are `result_changed`, an exception added, removed or changed,

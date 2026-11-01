@@ -664,8 +664,7 @@ def _behaviour_job(state: RunState, artifacts: ArtifactStore | None) -> Job:
             f"{counts['unstable']} unstable, {counts['unknown']} not comparable, "
             f"{counts['differences']} differences"
         )
-        modified = frozenset(s.test for s in result.selected if "modified_test" in s.reasons)
-        found = behaviour_diffs.differences(behaviour, modified)
+        found = behaviour_diffs.differences(behaviour, result.modified())
         itemised = found[: behaviour_diffs.MAX_GROUPS]
         again = behaviour_diffs.Reproduction(None, None)
         if itemised and behaviour.plan is not None and {"base", "head"} <= state.sides.keys():

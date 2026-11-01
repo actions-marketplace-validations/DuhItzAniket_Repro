@@ -16,10 +16,20 @@ so the tests a change touches are compared with their base version, from the sou
 - ``test_modified``: the test changed in none of those ways;
 - ``base_test_fails_on_head``: the base version of an edited test, run against head's code,
   fails where it passed on base (found by running, ``repro.runner.twosided``).
+
+**A parametrized test's cases.** Adding a case to ``@pytest.mark.parametrize`` changes the
+test's code, but not its other cases: each runs the same code with the same parameters as on
+base. A case is **kept** (``kept_cases``) when its test's code differs only in its
+``parametrize`` decorators' cases (their ``argvalues`` and ``ids``) and the case has the same
+ID and the same parameters and marks on both sides (the plugin's digest of plain values,
+``repro_pytest._case``). A kept case is not ``modified``: its outcomes are compared as any
+other test's. A case whose parameters changed, or could not be read, stays ``modified``, and
+the test's ``test_modified`` detail counts each kind.
 """
 
 import ast
-from collections.abc import Iterable, Mapping, Sequence
+import copy
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Final, Literal
 
@@ -218,6 +228,150 @@ def compare(base: _Shape, head: _Shape) -> list[tuple[TestChangeKind, str]]:
     return found
 
 
+#: A ``parametrize`` call's arguments that hold its cases, by position and by keyword.
+_CASE_ARGUMENTS: Final = {1: "argvalues", 3: "ids"}
+_CODE_CHANGED: Final = "the test's code changed"
+
+
+def _is_parametrize(decorator: ast.expr) -> bool:
+    return (
+        isinstance(decorator, ast.Call)
+        and _dotted(decorator.func).rsplit(".", 1)[-1] == "parametrize"
+    )
+
+
+def parametrized(function: ast.AST) -> bool:
+    """Whether a test function has a ``parametrize`` decorator of its own."""
+    decorators = getattr(function, "decorator_list", [])
+    return isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)) and any(
+        _is_parametrize(d) for d in decorators
+    )
+
+
+def _without_cases(decorator: ast.expr) -> ast.expr:
+    """A ``parametrize`` decorator with its cases left out (each replaced by ``None``, so that
+    the other arguments keep their places); any other decorator as it is."""
+    if not isinstance(decorator, ast.Call) or not _is_parametrize(decorator):
+        return decorator
+    args: list[ast.expr] = [
+        ast.Constant(None) if index in _CASE_ARGUMENTS else arg
+        for index, arg in enumerate(decorator.args)
+    ]
+    cases = set(_CASE_ARGUMENTS.values())
+    keywords = [k for k in decorator.keywords if k.arg not in cases]
+    return ast.Call(decorator.func, args, keywords)
+
+
+def common_code(function: ast.AST) -> str:
+    """What a test's cases have in common: its code as ``ast.dump`` gives it (no positions),
+    with each ``parametrize`` decorator's cases left out."""
+    if not isinstance(function, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        return ast.dump(function)
+    common = copy.copy(function)  # shallow: the resolver's own tree is left as it is
+    common.decorator_list = [_without_cases(d) for d in function.decorator_list]
+    return ast.dump(common)
+
+
+@dataclass(frozen=True, slots=True)
+class _Edited:
+    """A test function the change edited, on both sides."""
+
+    file: str
+    old: str  # its symbol on base
+    new: str  # its symbol on head
+    old_node: ast.AST
+    new_node: ast.AST
+
+    @property
+    def cases_only(self) -> bool:
+        """Whether it is parametrized on both sides and only its ``parametrize`` cases
+        changed."""
+        return (
+            parametrized(self.old_node)
+            and parametrized(self.new_node)
+            and common_code(self.old_node) == common_code(self.new_node)
+        )
+
+
+def _edited(
+    changes: Sequence[SymbolChange],
+    base: TestMap,
+    head: TestMap,
+    resolvers: tuple[Resolver, Resolver],
+) -> Iterator[_Edited]:
+    """The test functions the change edited, on both sides, in the changes' order."""
+    base_tests = {own for own in base.tests.values() if own is not None}
+    head_tests = {own for own in head.tests.values() if own is not None}
+    for change in changes:
+        old, new = base_id(change), head_id(change)
+        if old is None or new is None or old not in base_tests or new not in head_tests:
+            continue  # not a test on both sides (a new test, or a removed one, is reported apart)
+        old_node, new_node = _function(resolvers[0], old), _function(resolvers[1], new)
+        if old_node is not None and new_node is not None:
+            yield _Edited(change.file, old, new, old_node, new_node)
+
+
+@dataclass(frozen=True, slots=True)
+class _Cases:
+    """An edited test's cases, by what happened to them, in collection order."""
+
+    added: tuple[str, ...]
+    removed: tuple[str, ...]
+    kept: tuple[str, ...]  # the same parameters on both sides
+    changed: tuple[str, ...]  # other parameters on head
+    unread: tuple[str, ...]  # parameters that are not plain values, on either side
+
+    def detail(self) -> str:
+        counts = [
+            f"{len(self.added)} added",
+            f"{len(self.removed)} removed",
+            f"{len(self.kept)} kept their parameters",
+        ]
+        if self.changed:
+            counts.append(f"{len(self.changed)} changed theirs")
+        if self.unread:
+            counts.append(f"{len(self.unread)} could not be compared")
+        return f"only its parametrize cases changed: {', '.join(counts)}"
+
+
+def _cases(edited: _Edited, base: TestMap, head: TestMap) -> _Cases:
+    on_base = [t for t, own in base.tests.items() if own == edited.old]
+    on_head = [t for t, own in head.tests.items() if own == edited.new]
+    base_set, head_set = set(on_base), set(on_head)
+    kept: list[str] = []
+    changed: list[str] = []
+    unread: list[str] = []
+    for test in (t for t in on_head if t in base_set):
+        old, new = base.cases.get(test), head.cases.get(test)
+        if old is None or new is None:
+            unread.append(test)
+        else:
+            (kept if old == new else changed).append(test)
+    return _Cases(
+        tuple(t for t in on_head if t not in base_set),
+        tuple(t for t in on_base if t not in head_set),
+        tuple(kept),
+        tuple(changed),
+        tuple(unread),
+    )
+
+
+def kept_cases(
+    changes: Sequence[SymbolChange],
+    base: TestMap,
+    head: TestMap,
+    resolvers: tuple[Resolver, Resolver],
+) -> frozenset[str]:
+    """The cases of edited parametrized tests that the change left as they were (the module's
+    docstring): they are not ``modified``."""
+    return frozenset(
+        test
+        for edited in _edited(changes, base, head, resolvers)
+        if edited.cases_only
+        for test in _cases(edited, base, head).kept
+    )
+
+
 def _test_ids(tests: Mapping[str, str | None], symbol: str) -> list[str]:
     """The node IDs of a test function, without parameters, in order."""
     ids = {test.split("[", 1)[0] for test, own in tests.items() if own == symbol}
@@ -244,19 +398,12 @@ def test_changes(
         TestChange(test.split("::", 1)[0], test, "test_removed", "not collected on head")
         for test in sorted(set(base.tests) - set(head.tests))
     ]
-    base_tests = {own for own in base.tests.values() if own is not None}
-    head_tests = {own for own in head.tests.values() if own is not None}
-    for change in changes:
-        old, new = base_id(change), head_id(change)
-        if old is None or new is None or old not in base_tests or new not in head_tests:
-            continue  # not a test on both sides (a new test, or a removed one, is reported above)
-        old_node, new_node = _function(resolvers[0], old), _function(resolvers[1], new)
-        if old_node is None or new_node is None:
-            continue
-        findings = compare(shape(old_node), shape(new_node)) or [
-            ("test_modified", "the test's code changed")
+    for edited in _edited(changes, base, head, resolvers):
+        edit = _cases(edited, base, head).detail() if edited.cases_only else _CODE_CHANGED
+        findings = compare(shape(edited.old_node), shape(edited.new_node)) or [
+            ("test_modified", edit)
         ]
-        tests: list[str | None] = [*_test_ids(head.tests, new)] or [None]
+        tests: list[str | None] = [*_test_ids(head.tests, edited.new)] or [None]
         for test in tests:
-            found.extend(TestChange(change.file, test, kind, detail) for kind, detail in findings)
+            found.extend(TestChange(edited.file, test, kind, detail) for kind, detail in findings)
     return found

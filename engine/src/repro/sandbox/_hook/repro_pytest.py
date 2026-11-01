@@ -6,7 +6,8 @@ environment, never in Repro's (ARCHITECTURE §3). It talks to the engine through
 
 - ``results.jsonl``: one JSON object per line, written as the run goes (a crash still leaves
   what came before): ``{"kind": "collected", ...}`` per test collected, with where its function
-  is; ``{"kind": "test", ...}`` per test run; ``{"kind": "collect_error", ...}`` per module that
+  is and, for a parametrized case, a digest of its own parameters (``_case``);
+  ``{"kind": "test", ...}`` per test run; ``{"kind": "collect_error", ...}`` per module that
   failed to collect; with ``REPRO_MAP=1``, ``{"kind": "map", ...}`` per test, the functions it
   ran; and ``{"kind": "session", ...}`` last.
 
@@ -415,10 +416,80 @@ def pytest_collection_modifyitems(config: Any, items: list[Any]) -> None:
     items[:] = kept
 
 
+class _NotPlainError(Exception):
+    """A value whose content cannot be read without running the target's code."""
+
+
+#: Values a case's digest reads, at most (a larger case is not digested).
+_CASE_VALUES = 10_000
+_SCALARS = (str, bytes, int, float, complex, bool, type(None))
+_SEQUENCES = (tuple, list)
+_SETS = (set, frozenset)
+_TYPE_MODULE = type.__dict__["__module__"].__get__
+
+
+def _plain(value: Any, budget: list[int]) -> Any:
+    """``value`` as JSON when it is made of plain values only: exact built-in scalars, tuples,
+    lists, sets and dicts of them, and classes (by module and qualified name). Exact types
+    only, compared by identity, so none of the target's ``__repr__``, ``__eq__`` or
+    ``__hash__`` runs."""
+    budget[0] -= 1
+    if budget[0] < 0:
+        raise _NotPlainError
+    kind = type(value)
+    if any(kind is scalar for scalar in _SCALARS):
+        try:
+            return [kind.__name__, repr(value)]
+        except ValueError:  # an int beyond sys.get_int_max_str_digits()
+            raise _NotPlainError from None
+    if any(kind is sequence for sequence in _SEQUENCES):
+        return [kind.__name__, [_plain(v, budget) for v in value]]
+    if any(kind is kind_of_set for kind_of_set in _SETS):
+        items = [_plain(v, budget) for v in list(value)]
+        return [kind.__name__, sorted(items, key=json.dumps)]
+    if kind is dict:
+        pairs = [[_plain(k, budget), _plain(v, budget)] for k, v in list(value.items())]
+        return ["dict", sorted(pairs, key=json.dumps)]
+    if issubclass(kind, type):
+        module, qualname = _TYPE_MODULE(value), _QUALNAME(value)
+        if type(module) is str and type(qualname) is str:
+            return ["type", module, qualname]
+    raise _NotPlainError
+
+
+def _case(item: Any) -> str | None:
+    """A digest of a parametrized test case's own parameters (``callspec.params``) and marks
+    (``pytest.param(..., marks=...)``), or None: not a parametrized case, or a value that is
+    not plain (``_plain``). Two cases with the same ID and digest on base and head are the same
+    case, whatever other cases the change added or removed (``repro.runner.testdiff``)."""
+    callspec = getattr(item, "callspec", None)
+    if callspec is None:
+        return None
+    budget = [_CASE_VALUES]
+    try:
+        params = sorted([str(k), _plain(v, budget)] for k, v in callspec.params.items())
+        marks = [
+            [str(mark.name), _plain(tuple(mark.args), budget), _plain(dict(mark.kwargs), budget)]
+            for mark in getattr(callspec, "marks", ())
+        ]
+    except (_NotPlainError, RecursionError, TypeError, AttributeError):
+        return None
+    text = json.dumps([params, marks], ensure_ascii=True, separators=(",", ":"))
+    return hashlib.blake2b(text.encode("ascii"), digest_size=16).hexdigest()
+
+
 def pytest_collection_finish(session: Any) -> None:
     for item in session.items:
         place = _test_place(item)
-        _write({"kind": "collected", "nodeid": item.nodeid, "test": list(place) if place else None})
+        record: dict[str, Any] = {
+            "kind": "collected",
+            "nodeid": item.nodeid,
+            "test": list(place) if place else None,
+        }
+        case = _case(item)
+        if case is not None:
+            record["case"] = case
+        _write(record)
 
 
 @pytest.hookimpl(hookwrapper=True, tryfirst=True)

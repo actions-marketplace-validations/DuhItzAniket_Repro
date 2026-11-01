@@ -248,6 +248,23 @@ stays on the evidence rather than replacing the reruns; the test diff adds `asse
 sides, runs them and emits `test.selected`, `test.started` / `test.finished`, `test_outcome` /
 `test_change` evidence with `diff.outcome` / `diff.tests`, and the missing items.
 
+**A parametrized test's cases** (`testdiff.kept_cases`). Adding a case to
+`@pytest.mark.parametrize` changes the test function's code, but not its other cases. A case is
+*kept*, and classified like any other test rather than `modified`, when both hold:
+- the test's code, as `ast.dump` gives it, is the same on both sides once each `parametrize`
+  decorator's cases (`argvalues`, `ids`) are left out;
+- the case has the same node ID and the same digest on both sides. The plugin's digest covers
+  the case's own `callspec.params` and `pytest.param` marks. It reads plain values only (exact
+  built-in scalars, containers of them, classes by name), checking types by identity, so none
+  of the target's `__repr__`, `__eq__` or `__hash__` runs.
+
+A case whose parameters changed, or are not plain values, stays `modified`, and the test's
+`test_modified` detail counts each kind. The digests are in the base map (format 4) and in
+head's collection. A kept case is not run again in its base version, and its behaviour
+differences are not marked `test_modified`. pytest names a case whose parameters are not
+scalars by its position (`x2`), so a case inserted before it renames it: it is then `removed`
+on base and `new` on head, as before. JavaScript's `test.each` cases are not split this way.
+
 ### 4.3 Behaviour tracing (`plugin/tracer`, `plugin/encoder`) — see ADR-0005
 - `sys.monitoring` tool, claimed in order **4, 3, 2, 5**. IDs 0 (debugger) and 1 (coverage) are
   avoided. If no ID is free, the result is an explicit `trace_unavailable` missing item.

@@ -58,8 +58,8 @@ REASONS: Final[tuple[SelectionReason, ...]] = (
     "modified_test",
 )
 #: Bumped whenever what a cached map holds, or how it is made, changes (3: methods written for
-#: a class, mapped as the class).
-MAP_FORMAT: Final = 3
+#: a class, mapped as the class; 4: each parametrized case's digest).
+MAP_FORMAT: Final = 4
 CONFTEST: Final = "conftest.py"
 
 
@@ -145,6 +145,9 @@ class TestMap:
     #: node ID -> why it could not be collected: modules the map knows nothing of, kept so
     #: that a run from the cached map reports them as the run that made it did (H02)
     uncollected: Mapping[str, str] = field(default_factory=dict)
+    #: node ID -> the digest of a parametrized case's own parameters and marks, for the cases
+    #: whose parameters are plain values (the plugin's ``_case``)
+    cases: Mapping[str, str] = field(default_factory=dict)
 
     def payload(self) -> dict[str, Any]:
         return {
@@ -153,6 +156,7 @@ class TestMap:
             "ran": {test: sorted(symbols) for test, symbols in sorted(self.ran.items())},
             "unresolved": self.unresolved,
             "uncollected": dict(self.uncollected),
+            "cases": dict(sorted(self.cases.items())),
         }
 
     @classmethod
@@ -164,7 +168,8 @@ class TestMap:
         }
         ran = {str(test): frozenset(map(str, symbols)) for test, symbols in data["ran"].items()}
         uncollected = {str(test): str(why) for test, why in data["uncollected"].items()}
-        return cls(tests, ran, int(data["unresolved"]), uncollected)
+        cases = {str(test): str(digest) for test, digest in data["cases"].items()}
+        return cls(tests, ran, int(data["unresolved"]), uncollected, cases)
 
 
 def test_map(run: PytestRun, resolver: Resolver) -> TestMap:
@@ -190,7 +195,7 @@ def test_map(run: PytestRun, resolver: Resolver) -> TestMap:
         ran[test] = frozenset(s for s in map(resolve, sorted(places)) if s is not None)
         tests.setdefault(test, None)
     uncollected = {error.nodeid: error.message for error in run.collect_errors}
-    return TestMap(tests, ran, unresolved, uncollected)
+    return TestMap(tests, ran, unresolved, uncollected, dict(run.cases))
 
 
 @dataclass(frozen=True, slots=True)

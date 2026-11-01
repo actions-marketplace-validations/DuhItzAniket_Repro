@@ -882,3 +882,32 @@ entry. If something turns out wrong, add a correcting entry.
   capped context, an order by type and name can hide the decisive evidence behind many alike,
   uninformative items, and the judge then reports, correctly, that it saw no support. An
   evaluation should report how the evidence given to a judge was ordered and cut.
+
+## 2026-10-31 · fix · An old case is not an edited test
+- **Observed:** Repro's GitHub Action (Repro 1.6.1, commit `9bac85e`, `claude-haiku-5-5`) on
+  Lectris PR #11. The change adds four cases to one parametrized test and six to another, and
+  leaves the other 31 cases as they were. Each of the 31 was `diff.outcome` `modified`, with a
+  gap item "modified: … (base passed, head passed)". A reviewer judged the PR's true claim "No
+  existing test case changes" contradicted, citing those items.
+- **The cause:** `modified` was decided per test function. Selection gives `modified_test` to
+  every case of a function the change edited, and the `parametrize` list is part of the
+  function's code, so a case was `modified` when only other cases changed. The engine's own
+  evidence said, in effect, that every old case changed: the reviewer read it correctly.
+- **The fix** (`sandbox/_hook/repro_pytest.py`, `runner/testdiff.py`, `runner/twosided.py`):
+  the plugin digests each case's own parameters and `pytest.param` marks, reading plain values
+  only, by exact type, so none of the target's code runs. A case is kept, and compared like any
+  other test, when its function differs only in its `parametrize` cases and its ID and digest
+  are the same on both sides. A case whose parameters changed, or are not plain values, stays
+  `modified`. No event schema change.
+- **Checked on a synthetic repository of the same shape** (`test_twosided.py`, cold and from
+  the cached map): a fix, two cases kept and one added to one test, one case kept, one changed
+  under the same ID and one added to another. The kept cases are P2P, the changed one is
+  `modified`, the new ones `new`. The plugin's digests are checked on Python 3.12 to 3.15.
+  Lectris PR #11 was not run again for this entry, so its verdicts after the fix are not stated.
+- **Not covered:** pytest names a case whose parameters are not scalars by its position, so a
+  case inserted before it renames it (`removed` on base, `new` on head). A case whose
+  parameters are other objects stays `modified`. JavaScript's `test.each` cases are not split.
+- **For the paper:** the unit an outcome is attributed to is part of the evidence. Classified
+  at the function, one edit to a parametrize list marks every case changed, and a judge then
+  contradicts a true claim on the engine's word. An evaluation should say at which unit test
+  changes are recorded.

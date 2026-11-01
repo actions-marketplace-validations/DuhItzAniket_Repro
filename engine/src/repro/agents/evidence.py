@@ -22,10 +22,13 @@ inside an ``untrusted_content`` block; the evidence ID, type, stability, origin 
 which are the engine's, are outside it.
 
 **A listing shows the most decisive evidence first** (``rank``): it is cut at a few thousand
-characters, and a reviewer judges by what it saw. A change that adds cases to a parametrized
-test makes every old case of it ``modified`` (its code changed), with the same outcome on both
-sides; on a Lectris change, 31 such cases, ordered by target, filled the first listing and hid
-the new cases and the probe that showed the fix, and two reviewers answered "unverifiable".
+characters, and a reviewer judges by what it saw. Repro 1.6.1 made every old case of a
+parametrized test that gained cases ``modified`` (its code changed), with the same outcome on
+both sides; on a Lectris change, 31 such cases, ordered by target, filled the first listing and
+hid the new cases and the probe that showed the fix, and two reviewers answered "unverifiable".
+Such cases are now compared like any other test (``repro.runner.testdiff.kept_cases``), but many
+alike items still fill a listing: the cases that pass on both sides, or cases whose parameters
+could not be compared.
 """
 
 import json
@@ -147,8 +150,7 @@ def _passed_throughout(data: Mapping[str, Any]) -> bool:
 def rank(item: "Item") -> int:
     """How decisive ``item`` is, as its place in a listing: ``FAILING`` first, ``UNCHANGED``
     last. A ``modified`` test (its code changed, so the engine does not compare its outcomes)
-    that passed on every run is ``CODE_ONLY``: an old case of a parametrized test that gained
-    cases says little about the change."""
+    that passed on every run is ``CODE_ONLY``: it says little about the change."""
     data = item.data
     if unchanged(item):
         return UNCHANGED

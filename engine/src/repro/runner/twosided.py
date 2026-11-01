@@ -39,7 +39,7 @@ from repro.runner.selection import (
     uncovered,
 )
 from repro.runner.sides import Side
-from repro.runner.testdiff import TestChange, test_changes
+from repro.runner.testdiff import TestChange, kept_cases, test_changes
 from repro.runner.trace import TracePlan
 from repro.sandbox.detect import Detection
 
@@ -85,6 +85,15 @@ class TwoSided:
     map_cached: bool = False
     #: What A, A2 and H traced (None: nothing).
     trace: TracePlan | None = None
+    #: The cases of edited parametrized tests that the change left as they were
+    #: (``testdiff.kept_cases``): selected as ``modified_test``, compared as any other test.
+    kept_cases: frozenset[str] = frozenset()
+
+    def modified(self) -> frozenset[str]:
+        """The selected tests whose own code or parameters the change edited: their base and
+        head outcomes are of different tests."""
+        edited = {s.test for s in self.selected if "modified_test" in s.reasons}
+        return frozenset(edited - self.kept_cases)
 
     def traced(self) -> dict[str, RunRecord]:
         """A, A2 and H, those that ran, by label."""
@@ -426,7 +435,8 @@ def reproduce(
     on_base = [t for t in result.base_map.tests if t in wanted]
     on_head = [t for t in result.head_tests.tests if t in wanted]
     steps.run_selected(full, on_base, on_head)
-    modified = {s.test for s in result.selected if "modified_test" in s.reasons}
+    result.kept_cases = kept_cases(changes, result.base_map, result.head_tests, resolvers)
+    modified = set(result.modified())
     result.outcomes = steps.classify(chosen, set(on_base), set(on_head), modified, changes)
     found = test_changes(changes, result.base_map, result.head_tests, resolvers)
     found += steps.base_tests_on_head(sorted(modified & set(on_base)))

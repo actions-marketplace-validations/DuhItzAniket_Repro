@@ -316,7 +316,10 @@ def test_a_class_is_covered_when_a_method_written_for_it_ran() -> None:
 def test_the_map_cache(tmp_path: Path) -> None:
     cache = selection.MapCache(tmp_path / "maps")
     stored = selection.TestMap(
-        {"t.py::a": "t:a#0", "t.py::d": None}, {"t.py::a": frozenset({"t:a#0"})}, 2
+        {"t.py::a": "t:a#0", "t.py::d": None, "t.py::p[1]": "t:p#0"},
+        {"t.py::a": frozenset({"t:a#0"})},
+        2,
+        cases={"t.py::p[1]": "c" * 32},
     )
     key = selection.map_key("a" * 40, "f" * 64, "3.13.13", "win32")
     assert cache.get(key) is None
