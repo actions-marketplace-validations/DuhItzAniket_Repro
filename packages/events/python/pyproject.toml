@@ -21,7 +21,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Typing :: Typed",
 ]
-dependencies = ["jsonschema>=4.26.0", "referencing>=0.37.0", "pydantic>=2.14.1"]
+dependencies = ["jsonschema>=4.26.0", "referencing>=0.37.0", "pydantic>=2.14.2"]
 
 [project.urls]
 Homepage = "https://github.com/DuhItzAniket/Repro"
